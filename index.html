@@ -28,7 +28,7 @@
 
   <script>
     // ВАЖНО: Замените эту ссылку на ваш URL развернутого веб-приложения Apps Script
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6vfEYaw6pFjp2EvTK63JX1t2fmlpGjS6CXy8tHryopvDJt7w94GBJc0RRkwSONw/exec';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/ВАШ_ДЛИННЫЙ_ИДЕНТИФИКАТОР/exec';
 
     function handleCredentialResponse(response) {
       const statusDiv = document.getElementById('status');
@@ -37,8 +37,10 @@
       // Отправляем ID token на сервер Apps Script
       fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: response.credential })
+        // ВАЖНО: отправляем как обычный текст (text/plain), чтобы избежать ошибок CORS
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ token: response.credential }),
+        redirect: 'follow' // Apps Script делает редирект, это нужно обработать
       })
       .then(res => res.json())
       .then(data => {
