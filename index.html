@@ -37,13 +37,8 @@
       line-height: 1.6;
     }
 
-    .success {
-      color: #16803c;
-    }
-
-    .error {
-      color: #c62828;
-    }
+    .success { color: #16803c; }
+    .error { color: #c62828; }
 
     #reports {
       display: none;
@@ -90,40 +85,65 @@
       background: #fff;
       border: 1px solid #ddd;
       border-radius: 6px;
+      position: relative;
     }
 
     table {
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       width: max-content;
       min-width: 100%;
-      font-size: 13px;
+      table-layout: fixed;
+      font-size: 12px;
     }
 
     th, td {
-      border: 1px solid #ddd;
-      padding: 8px 10px;
+      border-right: 1px solid #ddd;
+      border-bottom: 1px solid #ddd;
+      padding: 6px 8px;
       text-align: center;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     th {
       background: #e9edf3;
       font-weight: bold;
       position: sticky;
-      top: 0;
-      z-index: 2;
+      z-index: 5;
+    }
+
+    td {
+      background: #fff;
     }
 
     td:first-child {
       text-align: left;
     }
 
-    tbody tr:nth-child(even) {
+    .sticky-col {
+      position: sticky;
+      z-index: 3;
+      background: #f1f3f6 !important;
+      text-align: left;
+    }
+
+    th.sticky-col {
+      z-index: 8;
+      background: #dce3ed !important;
+    }
+
+    tbody tr:nth-child(even) td:not(.sticky-col) {
       background: #f8f9fb;
     }
 
-    tbody tr:hover {
+    tbody tr:hover td {
       background: #edf3fc;
+    }
+
+    tbody tr:hover td.sticky-col {
+      background: #e3eaf4 !important;
     }
 
     .loading {
@@ -183,41 +203,15 @@
 
     <div class="report-buttons">
 
-      <button onclick="loadReport('Раздел 1')">
-        Раздел 1
-      </button>
-
-      <button onclick="loadReport('Раздел 2')">
-        Раздел 2
-      </button>
-
-      <button onclick="loadReport('Раздел 3')">
-        Раздел 3
-      </button>
-
-      <button onclick="loadReport('Раздел 4.1 без разбивки')">
-        Раздел 4.1 без разбивки
-      </button>
-
-      <button onclick="loadReport('Раздел 4')">
-        Раздел 4
-      </button>
-
-      <button onclick="loadReport('Раздел 5')">
-        Раздел 5
-      </button>
-
-      <button onclick="loadReport('Раздел 5 (с кэф)')">
-        Раздел 5 (с кэф)
-      </button>
-
-      <button onclick="loadReport('Раздел 5 по часам')">
-        Раздел 5 по часам
-      </button>
-
-      <button onclick="loadReport('Раздел 5 (по часам с кэф)')">
-        Раздел 5 (по часам с кэф)
-      </button>
+      <button onclick="loadReport('Раздел 1')">Раздел 1</button>
+      <button onclick="loadReport('Раздел 2')">Раздел 2</button>
+      <button onclick="loadReport('Раздел 3')">Раздел 3</button>
+      <button onclick="loadReport('Раздел 4.1 без разбивки')">Раздел 4.1 без разбивки</button>
+      <button onclick="loadReport('Раздел 4')">Раздел 4</button>
+      <button onclick="loadReport('Раздел 5')">Раздел 5</button>
+      <button onclick="loadReport('Раздел 5 (с кэф)')">Раздел 5 (с кэф)</button>
+      <button onclick="loadReport('Раздел 5 по часам')">Раздел 5 по часам</button>
+      <button onclick="loadReport('Раздел 5 (по часам с кэф)')">Раздел 5 (по часам с кэф)</button>
 
     </div>
 
@@ -289,7 +283,6 @@ function handleCredentialResponse(response) {
   });
 }
 
-
 function loadReport(reportName) {
 
   if (!currentToken) {
@@ -348,30 +341,28 @@ function loadReport(reportName) {
       throw new Error(data.error || 'Не удалось загрузить отчёт');
     }
 
-    renderTable(data.headerRows || [], data.rows || []);
+    renderTable(
+      data.headerRows || [],
+      data.rows || [],
+      reportName
+    );
 
   })
 
   .catch(err => {
-
     reportDiv.textContent = 'Ошибка загрузки: ' + err.message;
-
   })
 
   .finally(() => {
-
     buttons.forEach(button => {
       button.disabled = false;
     });
-
   });
 }
 
-
-function renderTable(headerRows, rows) {
+function renderTable(headerRows, rows, reportName) {
 
   const reportDiv = document.getElementById('report');
-
   const title = reportDiv.querySelector('.report-title');
 
   const container = document.createElement('div');
@@ -382,14 +373,65 @@ function renderTable(headerRows, rows) {
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
 
+  const frozenColumns = {
+    'Раздел 1': 1,
+    'Раздел 2': 2,
+    'Раздел 3': 2,
+    'Раздел 4.1 без разбивки': 2,
+    'Раздел 4': 2,
+    'Раздел 5': 2,
+    'Раздел 5 (с кэф)': 2,
+    'Раздел 5 по часам': 3,
+    'Раздел 5 (по часам с кэф)': 4
+  };
+
+  const freezeCount = frozenColumns[reportName] || 1;
+
+  const columnCount = Math.max(
+    0,
+    ...headerRows.map(row => row.length),
+    ...rows.map(row => row.length)
+  );
+
+  const labelWidths = [145, 125, 135, 100];
+
+  const colgroup = document.createElement('colgroup');
+
+  for (let i = 0; i < columnCount; i++) {
+
+    const col = document.createElement('col');
+
+    col.style.width = i < freezeCount
+      ? (labelWidths[i] || 110) + 'px'
+      : '105px';
+
+    colgroup.appendChild(col);
+  }
+
+  table.appendChild(colgroup);
+
+  const leftOffsets = [];
+  let leftPosition = 0;
+
+  for (let i = 0; i < freezeCount; i++) {
+    leftOffsets[i] = leftPosition;
+    leftPosition += labelWidths[i] || 110;
+  }
+
+  // Заголовки
   headerRows.forEach(row => {
 
     const tr = document.createElement('tr');
 
-    row.forEach(value => {
+    row.forEach((value, index) => {
 
       const th = document.createElement('th');
       th.textContent = value;
+
+      if (index < freezeCount) {
+        th.classList.add('sticky-col');
+        th.style.left = leftOffsets[index] + 'px';
+      }
 
       tr.appendChild(th);
 
@@ -399,14 +441,20 @@ function renderTable(headerRows, rows) {
 
   });
 
+  // Данные
   rows.forEach(row => {
 
     const tr = document.createElement('tr');
 
-    row.forEach(value => {
+    row.forEach((value, index) => {
 
       const td = document.createElement('td');
       td.textContent = value;
+
+      if (index < freezeCount) {
+        td.classList.add('sticky-col');
+        td.style.left = leftOffsets[index] + 'px';
+      }
 
       tr.appendChild(td);
 
@@ -422,6 +470,21 @@ function renderTable(headerRows, rows) {
   container.appendChild(table);
 
   reportDiv.replaceChildren(title, container);
+
+  // Фиксация всех строк заголовка
+  let topPosition = 0;
+
+  Array.from(thead.rows).forEach(tr => {
+
+    const height = tr.getBoundingClientRect().height;
+
+    tr.querySelectorAll('th').forEach(th => {
+      th.style.top = topPosition + 'px';
+    });
+
+    topPosition += height;
+
+  });
 
   const info = document.createElement('p');
   info.className = 'user-info';
