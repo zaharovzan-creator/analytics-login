@@ -413,29 +413,6 @@ function getFrozenColumns(reportName) {
 
 
 /**
- * Ищет столбец по подписи в заголовках.
- */
-function findHeaderColumn(headerRows, names) {
-
-  for (let r = 0; r < headerRows.length; r++) {
-
-    for (let c = 0; c < headerRows[r].length; c++) {
-
-      const value = String(headerRows[r][c] || '')
-        .trim()
-        .toLowerCase();
-
-      if (names.includes(value)) {
-        return c;
-      }
-    }
-  }
-
-  return -1;
-}
-
-
-/**
  * Проверяет, полностью ли пустой столбец.
  */
 function isColumnEmpty(headerRows, rows, columnIndex) {
@@ -481,37 +458,20 @@ function renderTable(headerRows, rows, reportName) {
     frozenColumns.add(i);
   }
 
-  // Дополнительно закрепляем столбец "Значения"
-  // в отчётах, где он присутствует.
-  if (
-    reportName === 'Раздел 5 по часам' ||
-    reportName === 'Раздел 5 (по часам с кэф)' ||
-    reportName === 'Раздел 5 (с кэф)'
-  ) {
+  // Для Раздела 5 не закрепляем пустые столбцы.
+  // Для Раздела 5 (с кэф) столбец "Значения"
+  // больше не закрепляется дополнительно.
 
-    const valuesColumn = findHeaderColumn(
-      headerRows,
-      ['значения']
-    );
-
-    if (valuesColumn >= 0) {
-      frozenColumns.add(valuesColumn);
-    }
-  }
-
-  // Скрываем пустые первые пять столбцов после "Дистанция"
-  // только в Разделе 5.
+  // Скрываем все полностью пустые столбцы
+  // в Разделе 5, кроме первого столбца.
   const hiddenColumns = new Set();
 
   if (reportName === 'Раздел 5') {
 
-    let hiddenCount = 0;
-
-    for (let i = 2; i < columnCount && hiddenCount < 5; i++) {
+    for (let i = 1; i < columnCount; i++) {
 
       if (isColumnEmpty(headerRows, rows, i)) {
         hiddenColumns.add(i);
-        hiddenCount++;
       }
     }
   }
@@ -629,8 +589,7 @@ function renderTable(headerRows, rows, reportName) {
   reportDiv.replaceChildren(title, container);
 
 
-  // Закрепляем только строки, которые сервер передал
-  // как заголовки. Строки "Всего" сюда не попадают.
+  // Закрепляем строки заголовка сверху.
   let topPosition = 0;
 
   Array.from(thead.rows).forEach(tr => {
@@ -657,4 +616,3 @@ function renderTable(headerRows, rows, reportName) {
 
 </body>
 </html>
-
