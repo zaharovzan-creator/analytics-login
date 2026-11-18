@@ -86,6 +86,7 @@
       border: 1px solid #ddd;
       border-radius: 6px;
       position: relative;
+      isolation: isolate;
     }
 
     table {
@@ -202,7 +203,6 @@
     <div class="user-info" id="userInfo"></div>
 
     <div class="report-buttons">
-
       <button onclick="loadReport('Раздел 1')">Раздел 1</button>
       <button onclick="loadReport('Раздел 2')">Раздел 2</button>
       <button onclick="loadReport('Раздел 3')">Раздел 3</button>
@@ -212,7 +212,6 @@
       <button onclick="loadReport('Раздел 5 (с кэф)')">Раздел 5 (с кэф)</button>
       <button onclick="loadReport('Раздел 5 по часам')">Раздел 5 по часам</button>
       <button onclick="loadReport('Раздел 5 (по часам с кэф)')">Раздел 5 (по часам с кэф)</button>
-
     </div>
 
   </div>
@@ -226,6 +225,7 @@ const APPS_SCRIPT_URL =
 
 let currentToken = '';
 let currentUser = null;
+
 
 function handleCredentialResponse(response) {
 
@@ -282,6 +282,7 @@ function handleCredentialResponse(response) {
     statusDiv.textContent = 'Ошибка: ' + err.message;
   });
 }
+
 
 function loadReport(reportName) {
 
@@ -360,6 +361,96 @@ function loadReport(reportName) {
   });
 }
 
+
+/**
+ * Ширина столбцов для каждого отчёта.
+ */
+function getColumnWidths(reportName) {
+
+  const settings = {
+    'Раздел 1': [85],
+
+    'Раздел 2': [110, 85],
+    'Раздел 3': [110, 85],
+
+    'Раздел 4.1 без разбивки': [110, 125, 115],
+    'Раздел 4': [110, 125, 115],
+
+    'Раздел 5': [110, 90],
+    'Раздел 5 (с кэф)': [110, 90],
+
+    'Раздел 5 по часам': [110, 105, 125, 115],
+    'Раздел 5 (по часам с кэф)': [110, 105, 125, 115]
+  };
+
+  return settings[reportName] || [110, 110, 110, 110];
+}
+
+
+/**
+ * Базовое количество закреплённых столбцов.
+ */
+function getFrozenColumns(reportName) {
+
+  const settings = {
+    'Раздел 1': 1,
+
+    'Раздел 2': 2,
+    'Раздел 3': 2,
+
+    'Раздел 4.1 без разбивки': 3,
+    'Раздел 4': 3,
+
+    'Раздел 5': 2,
+    'Раздел 5 (с кэф)': 2,
+
+    'Раздел 5 по часам': 4,
+    'Раздел 5 (по часам с кэф)': 4
+  };
+
+  return settings[reportName] || 1;
+}
+
+
+/**
+ * Ищет столбец по подписи в заголовках.
+ */
+function findHeaderColumn(headerRows, names) {
+
+  for (let r = 0; r < headerRows.length; r++) {
+
+    for (let c = 0; c < headerRows[r].length; c++) {
+
+      const value = String(headerRows[r][c] || '')
+        .trim()
+        .toLowerCase();
+
+      if (names.includes(value)) {
+        return c;
+      }
+    }
+  }
+
+  return -1;
+}
+
+
+/**
+ * Проверяет, полностью ли пустой столбец.
+ */
+function isColumnEmpty(headerRows, rows, columnIndex) {
+
+  const allRows = headerRows.concat(rows);
+
+  return allRows.every(row => {
+    return String(row[columnIndex] || '').trim() === '';
+  });
+}
+
+
+/**
+ * Формирование таблицы.
+ */
 function renderTable(headerRows, rows, reportName) {
 
   const reportDiv = document.getElementById('report');
@@ -373,96 +464,162 @@ function renderTable(headerRows, rows, reportName) {
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
 
-  const frozenColumns = {
-    'Раздел 1': 1,
-    'Раздел 2': 2,
-    'Раздел 3': 2,
-    'Раздел 4.1 без разбивки': 2,
-    'Раздел 4': 2,
-    'Раздел 5': 2,
-    'Раздел 5 (с кэф)': 2,
-    'Раздел 5 по часам': 3,
-    'Раздел 5 (по часам с кэф)': 4
-  };
-
-  const freezeCount = frozenColumns[reportName] || 1;
-
   const columnCount = Math.max(
     0,
     ...headerRows.map(row => row.length),
     ...rows.map(row => row.length)
   );
 
-  const labelWidths = [145, 125, 135, 100];
+  const columnWidths = getColumnWidths(reportName);
 
+  // Определяем закреплённые столбцы.
+  const frozenColumns = new Set();
+
+  const baseFrozenCount = getFrozenColumns(reportName);
+
+  for (let i = 0; i < baseFrozenCount; i++) {
+    frozenColumns.add(i);
+  }
+
+  // Дополнительно закрепляем столбец "Значения"
+  // в отчётах, где он присутствует.
+  if (
+    reportName === 'Раздел 5 по часам' ||
+    reportName === 'Раздел 5 (по часам с кэф)' ||
+    reportName === 'Раздел 5 (с кэф)'
+  ) {
+
+    const valuesColumn = findHeaderColumn(
+      headerRows,
+      ['значения']
+    );
+
+    if (valuesColumn >= 0) {
+      frozenColumns.add(valuesColumn);
+    }
+  }
+
+  // Скрываем пустые первые пять столбцов после "Дистанция"
+  // только в Разделе 5.
+  const hiddenColumns = new Set();
+
+  if (reportName === 'Раздел 5') {
+
+    let hiddenCount = 0;
+
+    for (let i = 2; i < columnCount && hiddenCount < 5; i++) {
+
+      if (isColumnEmpty(headerRows, rows, i)) {
+        hiddenColumns.add(i);
+        hiddenCount++;
+      }
+    }
+  }
+
+  // Убираем скрытые столбцы из закрепления.
+  hiddenColumns.forEach(index => {
+    frozenColumns.delete(index);
+  });
+
+  // Создаём ширины столбцов.
+  const widths = [];
+
+  for (let i = 0; i < columnCount; i++) {
+
+    widths[i] = columnWidths[i] || 105;
+
+    if (hiddenColumns.has(i)) {
+      widths[i] = 0;
+    }
+  }
+
+  // Считаем смещения закреплённых столбцов.
+  const leftOffsets = {};
+
+  let leftPosition = 0;
+
+  for (let i = 0; i < columnCount; i++) {
+
+    if (frozenColumns.has(i)) {
+      leftOffsets[i] = leftPosition;
+      leftPosition += widths[i];
+    }
+  }
+
+  // Создаём colgroup.
   const colgroup = document.createElement('colgroup');
 
   for (let i = 0; i < columnCount; i++) {
 
     const col = document.createElement('col');
 
-    col.style.width = i < freezeCount
-      ? (labelWidths[i] || 110) + 'px'
-      : '105px';
+    col.style.width = widths[i] + 'px';
+
+    if (hiddenColumns.has(i)) {
+      col.style.display = 'none';
+    }
 
     colgroup.appendChild(col);
   }
 
   table.appendChild(colgroup);
 
-  const leftOffsets = [];
-  let leftPosition = 0;
 
-  for (let i = 0; i < freezeCount; i++) {
-    leftOffsets[i] = leftPosition;
-    leftPosition += labelWidths[i] || 110;
-  }
-
-  // Заголовки
+  // Заголовки таблицы.
   headerRows.forEach(row => {
 
     const tr = document.createElement('tr');
 
-    row.forEach((value, index) => {
+    for (let i = 0; i < columnCount; i++) {
+
+      if (hiddenColumns.has(i)) {
+        continue;
+      }
 
       const th = document.createElement('th');
-      th.textContent = value;
 
-      if (index < freezeCount) {
+      th.textContent = row[i] || '';
+
+      if (frozenColumns.has(i)) {
         th.classList.add('sticky-col');
-        th.style.left = leftOffsets[index] + 'px';
+        th.style.left = leftOffsets[i] + 'px';
       }
 
       tr.appendChild(th);
-
-    });
+    }
 
     thead.appendChild(tr);
 
   });
 
-  // Данные
+
+  // Строки данных.
   rows.forEach(row => {
 
     const tr = document.createElement('tr');
 
-    row.forEach((value, index) => {
+    for (let i = 0; i < columnCount; i++) {
+
+      if (hiddenColumns.has(i)) {
+        continue;
+      }
 
       const td = document.createElement('td');
-      td.textContent = value;
 
-      if (index < freezeCount) {
+      td.textContent = row[i] || '';
+
+      if (frozenColumns.has(i)) {
         td.classList.add('sticky-col');
-        td.style.left = leftOffsets[index] + 'px';
+        td.style.left = leftOffsets[i] + 'px';
       }
 
       tr.appendChild(td);
-
-    });
+    }
 
     tbody.appendChild(tr);
 
   });
+
 
   table.appendChild(thead);
   table.appendChild(tbody);
@@ -471,7 +628,9 @@ function renderTable(headerRows, rows, reportName) {
 
   reportDiv.replaceChildren(title, container);
 
-  // Фиксация всех строк заголовка
+
+  // Закрепляем только строки, которые сервер передал
+  // как заголовки. Строки "Всего" сюда не попадают.
   let topPosition = 0;
 
   Array.from(thead.rows).forEach(tr => {
@@ -483,10 +642,11 @@ function renderTable(headerRows, rows, reportName) {
     });
 
     topPosition += height;
-
   });
 
+
   const info = document.createElement('p');
+
   info.className = 'user-info';
   info.textContent = 'Строк данных: ' + rows.length;
 
@@ -497,3 +657,4 @@ function renderTable(headerRows, rows, reportName) {
 
 </body>
 </html>
+
