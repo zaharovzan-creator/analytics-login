@@ -9,20 +9,32 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: Arial, sans-serif;
       margin: 30px;
       color: #222;
+      background: #f7f8fa;
     }
 
-    button {
-      padding: 10px 16px;
-      margin: 8px 0;
-      cursor: pointer;
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 20px;
     }
 
     #status {
-      margin-top: 20px;
+      margin-top: 18px;
+      line-height: 1.6;
     }
 
     .success {
@@ -33,26 +45,109 @@
       color: #c62828;
     }
 
+    #reports {
+      display: none;
+    }
+
+    .report-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    button {
+      border: 1px solid #bbb;
+      background: #fff;
+      border-radius: 5px;
+      padding: 10px 15px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #edf2f7;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
+    button.active {
+      background: #263f70;
+      color: #fff;
+      border-color: #263f70;
+    }
+
     #report {
-      margin-top: 25px;
-      overflow-x: auto;
+      margin-top: 20px;
+    }
+
+    .table-container {
+      overflow: auto;
+      max-height: 75vh;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
     }
 
     table {
       border-collapse: collapse;
-      width: 100%;
+      width: max-content;
+      min-width: 100%;
       font-size: 13px;
     }
 
     th, td {
-      border: 1px solid #ccc;
-      padding: 7px;
-      text-align: left;
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: center;
       white-space: nowrap;
     }
 
     th {
-      background: #f0f0f0;
+      background: #e9edf3;
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    td:first-child {
+      text-align: left;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f8f9fb;
+    }
+
+    tbody tr:hover {
+      background: #edf3fc;
+    }
+
+    .loading {
+      padding: 20px;
+      color: #555;
+    }
+
+    .report-title {
+      margin: 20px 0 12px;
+    }
+
+    .user-info {
+      color: #555;
+      font-size: 14px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        margin: 12px;
+      }
+
+      .panel {
+        padding: 12px;
+      }
     }
   </style>
 </head>
@@ -61,45 +156,94 @@
 
   <h2>Аналитика maxim</h2>
 
-  <div id="g_id_onload"
-       data-client_id="405088895649-r0p9j00so0u7lrm31h5mv7rskf5pobfs.apps.googleusercontent.com"
-       data-callback="handleCredentialResponse">
+  <div class="panel">
+
+    <div id="g_id_onload"
+      data-client_id="405088895649-r0p9j00so0u7lrm31h5mv7rskf5pobfs.apps.googleusercontent.com"
+      data-callback="handleCredentialResponse">
+    </div>
+
+    <div class="g_id_signin"
+      data-type="standard"
+      data-size="large"
+      data-theme="outline"
+      data-text="sign_in_with"
+      data-shape="rectangular">
+    </div>
+
+    <div id="status"></div>
+
   </div>
 
-  <div class="g_id_signin"
-       data-type="standard"
-       data-size="large"
-       data-theme="outline"
-       data-text="sign_in_with"
-       data-shape="rectangular">
-  </div>
+  <div id="reports" class="panel">
 
-  <div id="status"></div>
-
-  <div id="reports" hidden>
     <h3>Отчёты</h3>
-    <button onclick="loadReport('Раздел 2')">
-      Раздел 2
-    </button>
+
+    <div class="user-info" id="userInfo"></div>
+
+    <div class="report-buttons">
+
+      <button onclick="loadReport('Раздел 1')">
+        Раздел 1
+      </button>
+
+      <button onclick="loadReport('Раздел 2')">
+        Раздел 2
+      </button>
+
+      <button onclick="loadReport('Раздел 3')">
+        Раздел 3
+      </button>
+
+      <button onclick="loadReport('Раздел 4.1 без разбивки')">
+        Раздел 4.1 без разбивки
+      </button>
+
+      <button onclick="loadReport('Раздел 4')">
+        Раздел 4
+      </button>
+
+      <button onclick="loadReport('Раздел 5')">
+        Раздел 5
+      </button>
+
+      <button onclick="loadReport('Раздел 5 (с кэф)')">
+        Раздел 5 (с кэф)
+      </button>
+
+      <button onclick="loadReport('Раздел 5 по часам')">
+        Раздел 5 по часам
+      </button>
+
+      <button onclick="loadReport('Раздел 5 (по часам с кэф)')">
+        Раздел 5 (по часам с кэф)
+      </button>
+
+    </div>
+
   </div>
 
   <div id="report"></div>
 
 <script>
+
 const APPS_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbz6vfEYaw6pFjp2EvTK63JX1t2fmlpGjS6CXy8tHryopvDJt7w94GBJc0RRkwSONw/exec';
 
 let currentToken = '';
+let currentUser = null;
 
 function handleCredentialResponse(response) {
+
   currentToken = response.credential;
 
   const statusDiv = document.getElementById('status');
+
   statusDiv.className = '';
   statusDiv.textContent = 'Проверка доступа...';
 
-  document.getElementById('reports').hidden = true;
-  document.getElementById('report').innerHTML = '';
+  document.getElementById('reports').style.display = 'none';
+  document.getElementById('report').replaceChildren();
 
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
@@ -111,35 +255,73 @@ function handleCredentialResponse(response) {
     }),
     redirect: 'follow'
   })
+
   .then(res => {
     if (!res.ok) {
       throw new Error('Ошибка сервера: ' + res.status);
     }
     return res.json();
   })
+
   .then(data => {
+
     if (!data.success) {
       throw new Error(data.error || 'Доступ запрещён');
     }
 
+    currentUser = data;
+
     statusDiv.className = 'success';
-    statusDiv.textContent =
-      'Авторизация успешна! Пользователь: ' + data.email +
+    statusDiv.textContent = 'Авторизация успешна!';
+
+    document.getElementById('userInfo').textContent =
+      'Пользователь: ' + data.email +
       ' | Роль: ' +
       (data.role === 'admin' ? 'Администратор' : 'Пользователь');
 
-    document.getElementById('reports').hidden = false;
+    document.getElementById('reports').style.display = 'block';
+
   })
+
   .catch(err => {
     statusDiv.className = 'error';
     statusDiv.textContent = 'Ошибка: ' + err.message;
   });
 }
 
+
 function loadReport(reportName) {
+
+  if (!currentToken) {
+    alert('Сначала необходимо авторизоваться');
+    return;
+  }
+
   const reportDiv = document.getElementById('report');
 
-  reportDiv.textContent = 'Загрузка отчёта...';
+  reportDiv.innerHTML = '';
+
+  const title = document.createElement('h3');
+  title.className = 'report-title';
+  title.textContent = reportName;
+
+  const loading = document.createElement('div');
+  loading.className = 'loading';
+  loading.textContent = 'Загрузка отчёта...';
+
+  reportDiv.appendChild(title);
+  reportDiv.appendChild(loading);
+
+  const buttons = document.querySelectorAll('.report-buttons button');
+
+  buttons.forEach(button => {
+    button.disabled = true;
+    button.classList.remove('active');
+
+    if (button.textContent.trim() === reportName) {
+      button.classList.add('active');
+    }
+  });
 
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
@@ -152,58 +334,102 @@ function loadReport(reportName) {
     }),
     redirect: 'follow'
   })
+
   .then(res => {
     if (!res.ok) {
       throw new Error('Ошибка сервера: ' + res.status);
     }
     return res.json();
   })
+
   .then(data => {
+
     if (!data.success) {
       throw new Error(data.error || 'Не удалось загрузить отчёт');
     }
 
-    renderTable(data.headers, data.rows);
+    renderTable(data.headerRows || [], data.rows || []);
+
   })
+
   .catch(err => {
+
     reportDiv.textContent = 'Ошибка загрузки: ' + err.message;
+
+  })
+
+  .finally(() => {
+
+    buttons.forEach(button => {
+      button.disabled = false;
+    });
+
   });
 }
 
-function renderTable(headers, rows) {
+
+function renderTable(headerRows, rows) {
+
   const reportDiv = document.getElementById('report');
 
+  const title = reportDiv.querySelector('.report-title');
+
+  const container = document.createElement('div');
+  container.className = 'table-container';
+
   const table = document.createElement('table');
+
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
 
-  const headerRow = document.createElement('tr');
+  headerRows.forEach(row => {
 
-  headers.forEach(value => {
-    const th = document.createElement('th');
-    th.textContent = value;
-    headerRow.appendChild(th);
-  });
-
-  thead.appendChild(headerRow);
-
-  rows.forEach(row => {
     const tr = document.createElement('tr');
 
     row.forEach(value => {
+
+      const th = document.createElement('th');
+      th.textContent = value;
+
+      tr.appendChild(th);
+
+    });
+
+    thead.appendChild(tr);
+
+  });
+
+  rows.forEach(row => {
+
+    const tr = document.createElement('tr');
+
+    row.forEach(value => {
+
       const td = document.createElement('td');
       td.textContent = value;
+
       tr.appendChild(td);
+
     });
 
     tbody.appendChild(tr);
+
   });
 
   table.appendChild(thead);
   table.appendChild(tbody);
 
-  reportDiv.replaceChildren(table);
+  container.appendChild(table);
+
+  reportDiv.replaceChildren(title, container);
+
+  const info = document.createElement('p');
+  info.className = 'user-info';
+  info.textContent = 'Строк данных: ' + rows.length;
+
+  reportDiv.appendChild(info);
 }
+
 </script>
 
 </body>
