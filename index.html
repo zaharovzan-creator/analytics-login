@@ -1,57 +1,103 @@
+
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Вход в аналитику</title>
+
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <style>
-    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
-    .container { text-align: center; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    #status { margin-top: 20px; color: #555; }
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f0f2f5;
+    }
+
+    .container {
+      text-align: center;
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    #status {
+      margin-top: 20px;
+      color: #555;
+    }
+
+    .success {
+      color: green;
+    }
+
+    .error {
+      color: red;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h2>Вход в аналитику</h2>
     <p>Войдите, чтобы увидеть данные по вашим городам.</p>
-    
+
     <div id="g_id_onload"
          data-client_id="405088895649-r0p9j00so0u7lrm31h5mv7rskf5pobfs.apps.googleusercontent.com"
          data-callback="handleCredentialResponse"
          data-auto_prompt="false">
     </div>
+
     <div class="g_id_signin" data-type="standard"></div>
 
-    <div id="status"></div>
+    <div id="status">Ожидание авторизации...</div>
   </div>
 
   <script>
-    // ВАЖНО: Замените эту ссылку на ваш URL развернутого веб-приложения Apps Script
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6vfEYaw6pFjp2EvTK63JX1t2fmlpGjS6CXy8tHryopvDJt7w94GBJc0RRkwSONw/exec';
+    const APPS_SCRIPT_URL =
+      'https://script.google.com/macros/s/AKfycbz6vfEYaw6pFjp2EvTK63JX1t2fmlpGjS6CXy8tHryopvDJt7w94GBJc0RRkwSONw/exec';
 
     function handleCredentialResponse(response) {
       const statusDiv = document.getElementById('status');
-      statusDiv.textContent = 'Проверка токена...';
 
-      // Отправляем ID token на сервер Apps Script
+      statusDiv.className = '';
+      statusDiv.textContent = 'Проверка соединения с сервером...';
+
       fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        // ВАЖНО: отправляем как обычный текст (text/plain), чтобы избежать ошибок CORS
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ token: response.credential }),
-        redirect: 'follow' // Apps Script делает редирект, это нужно обработать
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify({
+          token: response.credential
+        }),
+        redirect: 'follow'
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Ошибка сервера: ' + res.status);
+        }
+        return res.json();
+      })
       .then(data => {
         if (data.success) {
-          statusDiv.innerHTML = '<b>Добро пожаловать, ' + data.email + '!</b><br>Ваши города: ' + data.cities.join(', ');
-          // Здесь позже будет загрузка данных
+          statusDiv.className = 'success';
+          statusDiv.innerHTML =
+            '<b>Соединение успешно установлено!</b><br>' +
+            (data.message || 'Сервер Apps Script отвечает.') +
+            '<br>Время ответа: ' + (data.time || 'не указано');
         } else {
-          statusDiv.textContent = 'Ошибка: ' + data.error;
+          statusDiv.className = 'error';
+          statusDiv.textContent = 'Ошибка: ' + (data.error || 'Неизвестная ошибка');
         }
       })
       .catch(err => {
+        statusDiv.className = 'error';
         statusDiv.textContent = 'Ошибка соединения: ' + err.message;
       });
     }
