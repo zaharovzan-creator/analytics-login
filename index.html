@@ -395,7 +395,9 @@ function normalizeMetricName(value) {
 
 function isPriceIndexName(value) {
   const name = normalizeMetricName(value);
-  return name === 'priceindex' || name === 'priceindex(%)';
+  // В разных сводных название метрики может содержать уточнение,
+  // знак процента или находиться не в первой ячейке строки.
+  return name.includes('priceindex');
 }
 
 function getPriceIndexColor(value) {
@@ -482,7 +484,11 @@ function renderTable(headerRows, rows, reportName) {
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
-    const isMetricRow = isPriceIndexName(row[0]);
+    // Ищем подпись PriceIndex во всей строке, а не только в row[0].
+    // Это важно для горизонтальных сводных, где название метрики
+    // может располагаться во второй или последующей колонке.
+    const metricLabelIndex = row.findIndex(cell => isPriceIndexName(cell));
+    const isMetricRow = metricLabelIndex !== -1;
 
     for (let i = 0; i < columnCount; i++) {
       if (hiddenColumns.has(i)) continue;
@@ -491,7 +497,7 @@ function renderTable(headerRows, rows, reportName) {
 
       // Если PriceIndex расположен в строке, окрашиваем всю строку.
       // Если PriceIndex расположен в заголовке столбца, окрашиваем его значения.
-      if (isMetricRow || priceIndexColumns.has(i)) {
+      if ((isMetricRow && i !== metricLabelIndex) || priceIndexColumns.has(i)) {
         const color = getPriceIndexColor(row[i]);
         if (color) {
           td.style.color = color;
