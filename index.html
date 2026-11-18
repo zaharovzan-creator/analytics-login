@@ -9,9 +9,7 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       font-family: Arial, sans-serif;
@@ -20,9 +18,7 @@
       background: #f7f8fa;
     }
 
-    h2 {
-      margin-bottom: 20px;
-    }
+    h2 { margin-bottom: 20px; }
 
     .panel {
       background: #fff;
@@ -40,9 +36,7 @@
     .success { color: #16803c; }
     .error { color: #c62828; }
 
-    #reports {
-      display: none;
-    }
+    #reports { display: none; }
 
     .report-buttons {
       display: flex;
@@ -60,9 +54,7 @@
       font-size: 14px;
     }
 
-    button:hover {
-      background: #edf2f7;
-    }
+    button:hover { background: #edf2f7; }
 
     button:disabled {
       opacity: 0.5;
@@ -75,9 +67,7 @@
       border-color: #263f70;
     }
 
-    #report {
-      margin-top: 20px;
-    }
+    #report { margin-top: 20px; }
 
     .table-container {
       overflow: auto;
@@ -115,13 +105,8 @@
       z-index: 5;
     }
 
-    td {
-      background: #fff;
-    }
-
-    td:first-child {
-      text-align: left;
-    }
+    td { background: #fff; }
+    td:first-child { text-align: left; }
 
     .sticky-col {
       position: sticky;
@@ -139,36 +124,144 @@
       background: #f8f9fb;
     }
 
-    tbody tr:hover td {
-      background: #edf3fc;
-    }
-
-    tbody tr:hover td.sticky-col {
-      background: #e3eaf4 !important;
-    }
+    tbody tr:hover td { background: #edf3fc; }
+    tbody tr:hover td.sticky-col { background: #e3eaf4 !important; }
 
     .loading {
       padding: 20px;
       color: #555;
     }
 
-    .report-title {
-      margin: 20px 0 12px;
-    }
+    .report-title { margin: 20px 0 12px; }
 
     .user-info {
       color: #555;
       font-size: 14px;
     }
 
-    @media (max-width: 600px) {
-      body {
-        margin: 12px;
-      }
+    /* Администрирование */
 
-      .panel {
-        padding: 12px;
-      }
+    #adminButton {
+      display: none;
+      margin-top: 15px;
+      background: #263f70;
+      color: white;
+      border-color: #263f70;
+    }
+
+    #adminPanel {
+      display: none;
+      margin-top: 20px;
+      border-top: 1px solid #ddd;
+      padding-top: 18px;
+    }
+
+    .admin-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .admin-form {
+      border: 1px solid #ddd;
+      border-radius: 7px;
+      padding: 16px;
+      margin: 15px 0;
+      background: #fafbfc;
+      max-width: 650px;
+    }
+
+    .form-field {
+      margin-bottom: 13px;
+    }
+
+    .form-field label {
+      display: block;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .form-field input,
+    .form-field select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #bbb;
+      border-radius: 5px;
+      font-size: 14px;
+      background: white;
+    }
+
+    .form-hint {
+      color: #777;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .primary-button {
+      background: #263f70;
+      color: white;
+      border-color: #263f70;
+    }
+
+    .danger-button {
+      color: #b42318;
+      border-color: #d9a09b;
+    }
+
+    .admin-table-wrap {
+      overflow-x: auto;
+      margin-top: 15px;
+    }
+
+    .admin-table {
+      width: 100%;
+      min-width: 600px;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: 13px;
+    }
+
+    .admin-table th,
+    .admin-table td {
+      position: static;
+      text-align: left;
+      white-space: normal;
+      padding: 9px;
+      background: white;
+    }
+
+    .admin-table th {
+      background: #e9edf3;
+    }
+
+    .admin-table td:last-child {
+      white-space: nowrap;
+    }
+
+    .admin-table button {
+      margin: 2px;
+      padding: 6px 9px;
+      font-size: 12px;
+    }
+
+    #adminStatus {
+      margin: 10px 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 600px) {
+      body { margin: 12px; }
+      .panel { padding: 12px; }
     }
   </style>
 </head>
@@ -202,50 +295,126 @@
 
     <div class="user-info" id="userInfo"></div>
 
+    <button id="adminButton" onclick="toggleAdminPanel()">
+      Администрирование
+    </button>
+
+    <div id="adminPanel">
+
+      <h3>Управление пользователями</h3>
+
+      <div class="admin-toolbar">
+        <button class="primary-button" onclick="newUser()">
+          + Добавить пользователя
+        </button>
+
+        <button onclick="loadAdminUsers()">
+          Обновить список
+        </button>
+      </div>
+
+      <div id="adminStatus"></div>
+
+      <div class="admin-form" id="userForm" style="display:none;">
+
+        <h4 id="formTitle">Новый пользователь</h4>
+
+        <div class="form-field">
+          <label for="userEmail">Google-почта</label>
+          <input
+            type="email"
+            id="userEmail"
+            placeholder="user@gmail.com"
+            autocomplete="off">
+        </div>
+
+        <div class="form-field">
+          <label for="userRole">Роль</label>
+          <select id="userRole" onchange="changeRoleFields()">
+            <option value="user">Пользователь</option>
+            <option value="admin">Администратор</option>
+          </select>
+        </div>
+
+        <div class="form-field" id="citiesField">
+          <label for="userCities">Города через запятую</label>
+          <input
+            type="text"
+            id="userCities"
+            placeholder="Максим Курган, Максим Тюмень"
+            autocomplete="off">
+          <div class="form-hint">
+            Названия должны совпадать с названиями подразделений в сводных таблицах.
+          </div>
+        </div>
+
+        <div class="admin-actions">
+          <button class="primary-button" id="saveUserButton" onclick="saveUserForm()">
+            Сохранить
+          </button>
+
+          <button onclick="cancelUserForm()">
+            Отмена
+          </button>
+        </div>
+
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Роль</th>
+              <th>Города</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="4">Загрузка...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
     <div class="report-buttons">
 
-      <button data-report="Раздел 1"
-        onclick="loadReport('Раздел 1')">
+      <button data-report="Раздел 1" onclick="loadReport('Раздел 1')">
         Общий PriceIndex (РФ)
       </button>
 
-      <button data-report="Раздел 2"
-        onclick="loadReport('Раздел 2')">
+      <button data-report="Раздел 2" onclick="loadReport('Раздел 2')">
         PriceIndex по неделям
       </button>
 
-      <button data-report="Раздел 3"
-        onclick="loadReport('Раздел 3')">
+      <button data-report="Раздел 3" onclick="loadReport('Раздел 3')">
         PriceIndex по дням
       </button>
 
-      <button data-report="Раздел 4.1 без разбивки"
-        onclick="loadReport('Раздел 4.1 без разбивки')">
+      <button data-report="Раздел 4.1 без разбивки" onclick="loadReport('Раздел 4.1 без разбивки')">
         PriceIndex по периодам и неделям
       </button>
 
-      <button data-report="Раздел 4"
-        onclick="loadReport('Раздел 4')">
+      <button data-report="Раздел 4" onclick="loadReport('Раздел 4')">
         PriceIndex по периодам и неделям (Surge/без Surge)
       </button>
 
-      <button data-report="Раздел 5"
-        onclick="loadReport('Раздел 5')">
+      <button data-report="Раздел 5" onclick="loadReport('Раздел 5')">
         PriceIndex по км и неделям
       </button>
 
-      <button data-report="Раздел 5 (с кэф)"
-        onclick="loadReport('Раздел 5 (с кэф)')">
+      <button data-report="Раздел 5 (с кэф)" onclick="loadReport('Раздел 5 (с кэф)')">
         PriceIndex по км и неделям (Surge/без Surge)
       </button>
 
-      <button data-report="Раздел 5 по часам"
-        onclick="loadReport('Раздел 5 по часам')">
+      <button data-report="Раздел 5 по часам" onclick="loadReport('Раздел 5 по часам')">
         PriceIndex по км, по периодам и неделям
       </button>
 
-      <button data-report="Раздел 5 (по часам с кэф)"
-        onclick="loadReport('Раздел 5 (по часам с кэф)')">
+      <button data-report="Раздел 5 (по часам с кэф)" onclick="loadReport('Раздел 5 (по часам с кэф)')">
         PriceIndex по км, по периодам и неделям (Surge/без Surge)
       </button>
 
@@ -262,34 +431,19 @@ const APPS_SCRIPT_URL =
 
 let currentToken = '';
 let currentUser = null;
+let editingEmail = null;
 
 
-// Отображаемые названия отчётов.
-// Ключи остаются прежними, чтобы не менять связь с Google Таблицей.
 const REPORT_LABELS = {
   'Раздел 1': 'Общий PriceIndex (РФ)',
-
   'Раздел 2': 'PriceIndex по неделям',
-
   'Раздел 3': 'PriceIndex по дням',
-
-  'Раздел 4.1 без разбивки':
-    'PriceIndex по периодам и неделям',
-
-  'Раздел 4':
-    'PriceIndex по периодам и неделям (Surge/без Surge)',
-
-  'Раздел 5':
-    'PriceIndex по км и неделям',
-
-  'Раздел 5 (с кэф)':
-    'PriceIndex по км и неделям (Surge/без Surge)',
-
-  'Раздел 5 по часам':
-    'PriceIndex по км, по периодам и неделям',
-
-  'Раздел 5 (по часам с кэф)':
-    'PriceIndex по км, по периодам и неделям (Surge/без Surge)'
+  'Раздел 4.1 без разбивки': 'PriceIndex по периодам и неделям',
+  'Раздел 4': 'PriceIndex по периодам и неделям (Surge/без Surge)',
+  'Раздел 5': 'PriceIndex по км и неделям',
+  'Раздел 5 (с кэф)': 'PriceIndex по км и неделям (Surge/без Surge)',
+  'Раздел 5 по часам': 'PriceIndex по км, по периодам и неделям',
+  'Раздел 5 (по часам с кэф)': 'PriceIndex по км, по периодам и неделям (Surge/без Surge)'
 };
 
 
@@ -298,7 +452,42 @@ function getReportLabel(reportName) {
 }
 
 
-function handleCredentialResponse(response) {
+/* =====================================================
+   ОБЩАЯ ФУНКЦИЯ ЗАПРОСОВ
+===================================================== */
+
+async function apiRequest(data) {
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify({
+      token: currentToken,
+      ...data
+    }),
+    redirect: 'follow'
+  });
+
+  if (!response.ok) {
+    throw new Error('Ошибка сервера: ' + response.status);
+  }
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error(result.error || 'Ошибка выполнения запроса');
+  }
+
+  return result;
+}
+
+
+/* =====================================================
+   АВТОРИЗАЦИЯ
+===================================================== */
+
+async function handleCredentialResponse(response) {
 
   currentToken = response.credential;
 
@@ -310,29 +499,11 @@ function handleCredentialResponse(response) {
   document.getElementById('reports').style.display = 'none';
   document.getElementById('report').replaceChildren();
 
-  fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify({
-      token: currentToken
-    }),
-    redirect: 'follow'
-  })
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('adminButton').style.display = 'none';
 
-  .then(res => {
-    if (!res.ok) {
-      throw new Error('Ошибка сервера: ' + res.status);
-    }
-    return res.json();
-  })
-
-  .then(data => {
-
-    if (!data.success) {
-      throw new Error(data.error || 'Доступ запрещён');
-    }
+  try {
+    const data = await apiRequest({});
 
     currentUser = data;
 
@@ -346,17 +517,267 @@ function handleCredentialResponse(response) {
 
     document.getElementById('reports').style.display = 'block';
 
-  })
+    if (data.role === 'admin') {
+      document.getElementById('adminButton').style.display = 'inline-block';
+    }
 
-  .catch(err => {
+  } catch (err) {
     statusDiv.className = 'error';
     statusDiv.textContent = 'Ошибка: ' + err.message;
+  }
+}
+
+
+/* =====================================================
+   АДМИНИСТРИРОВАНИЕ
+===================================================== */
+
+function toggleAdminPanel() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    return;
+  }
+
+  const panel = document.getElementById('adminPanel');
+
+  const isOpen = panel.style.display === 'block';
+
+  panel.style.display = isOpen ? 'none' : 'block';
+
+  if (!isOpen) {
+    loadAdminUsers();
+  }
+}
+
+
+function setAdminStatus(message, type) {
+  const element = document.getElementById('adminStatus');
+
+  element.className = type || '';
+  element.textContent = message || '';
+}
+
+
+async function loadAdminUsers() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    return;
+  }
+
+  const tbody = document.getElementById('usersTableBody');
+
+  tbody.innerHTML = '<tr><td colspan="4">Загрузка пользователей...</td></tr>';
+
+  setAdminStatus('', '');
+
+  try {
+    const data = await apiRequest({
+      action: 'listUsers'
+    });
+
+    renderUsersTable(data.users || []);
+
+  } catch (error) {
+    tbody.innerHTML = '<tr><td colspan="4">Не удалось загрузить список</td></tr>';
+    setAdminStatus(error.message, 'error');
+  }
+}
+
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTableBody');
+  tbody.replaceChildren();
+
+  if (!users.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+
+    td.colSpan = 4;
+    td.textContent = 'Пользователей пока нет';
+
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  users.forEach(user => {
+    const tr = document.createElement('tr');
+
+    const email = document.createElement('td');
+    email.textContent = user.email;
+
+    const role = document.createElement('td');
+    role.textContent =
+      user.role === 'admin' ? 'Администратор' : 'Пользователь';
+
+    const cities = document.createElement('td');
+    cities.textContent =
+      user.role === 'admin'
+        ? 'Все города'
+        : (user.cities || []).join(', ');
+
+    const actions = document.createElement('td');
+
+    const editButton = document.createElement('button');
+    editButton.textContent = 'Изменить';
+    editButton.addEventListener('click', () => editUser(user));
+
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Удалить';
+    deleteButton.className = 'danger-button';
+    deleteButton.addEventListener('click', () => removeUser(user.email));
+
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+
+    tr.appendChild(email);
+    tr.appendChild(role);
+    tr.appendChild(cities);
+    tr.appendChild(actions);
+
+    tbody.appendChild(tr);
   });
 }
 
 
-function loadReport(reportName) {
+function newUser() {
+  editingEmail = null;
 
+  document.getElementById('formTitle').textContent =
+    'Добавление пользователя';
+
+  document.getElementById('userEmail').value = '';
+  document.getElementById('userEmail').disabled = false;
+  document.getElementById('userRole').value = 'user';
+  document.getElementById('userCities').value = '';
+
+  changeRoleFields();
+
+  document.getElementById('userForm').style.display = 'block';
+  setAdminStatus('', '');
+
+  document.getElementById('userEmail').focus();
+}
+
+
+function editUser(user) {
+  editingEmail = user.email;
+
+  document.getElementById('formTitle').textContent =
+    'Редактирование пользователя';
+
+  document.getElementById('userEmail').value = user.email;
+  document.getElementById('userEmail').disabled = true;
+
+  document.getElementById('userRole').value = user.role;
+
+  document.getElementById('userCities').value =
+    (user.cities || []).join(', ');
+
+  changeRoleFields();
+
+  document.getElementById('userForm').style.display = 'block';
+
+  setAdminStatus('', '');
+
+  document.getElementById('userForm').scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest'
+  });
+}
+
+
+function changeRoleFields() {
+  const role = document.getElementById('userRole').value;
+
+  document.getElementById('citiesField').style.display =
+    role === 'admin' ? 'none' : 'block';
+}
+
+
+function cancelUserForm() {
+  editingEmail = null;
+
+  document.getElementById('userForm').style.display = 'none';
+  document.getElementById('userEmail').disabled = false;
+
+  setAdminStatus('', '');
+}
+
+
+async function saveUserForm() {
+  const email = document.getElementById('userEmail').value.trim();
+  const role = document.getElementById('userRole').value;
+  const cities = document.getElementById('userCities').value.trim();
+
+  const button = document.getElementById('saveUserButton');
+
+  if (!email) {
+    setAdminStatus('Укажите email пользователя', 'error');
+    return;
+  }
+
+  if (role === 'user' && !cities) {
+    setAdminStatus('Укажите хотя бы один город', 'error');
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Сохранение...';
+
+  try {
+    const data = await apiRequest({
+      action: 'saveUser',
+      email: email,
+      role: role,
+      cities: cities
+    });
+
+    setAdminStatus(data.message, 'success');
+
+    cancelUserForm();
+
+    await loadAdminUsers();
+
+  } catch (error) {
+    setAdminStatus(error.message, 'error');
+
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Сохранить';
+  }
+}
+
+
+async function removeUser(email) {
+  if (email === currentUser.email) {
+    alert('Нельзя удалить собственную учётную запись.');
+    return;
+  }
+
+  if (!confirm('Удалить пользователя ' + email + '?')) {
+    return;
+  }
+
+  try {
+    const data = await apiRequest({
+      action: 'deleteUser',
+      email: email
+    });
+
+    setAdminStatus(data.message, 'success');
+
+    await loadAdminUsers();
+
+  } catch (error) {
+    setAdminStatus(error.message, 'error');
+  }
+}
+
+
+/* =====================================================
+   ЗАГРУЗКА ОТЧЁТОВ
+===================================================== */
+
+async function loadReport(reportName) {
   if (!currentToken) {
     alert('Сначала необходимо авторизоваться');
     return;
@@ -388,30 +809,10 @@ function loadReport(reportName) {
     }
   });
 
-  fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify({
-      token: currentToken,
+  try {
+    const data = await apiRequest({
       report: reportName
-    }),
-    redirect: 'follow'
-  })
-
-  .then(res => {
-    if (!res.ok) {
-      throw new Error('Ошибка сервера: ' + res.status);
-    }
-    return res.json();
-  })
-
-  .then(data => {
-
-    if (!data.success) {
-      throw new Error(data.error || 'Не удалось загрузить отчёт');
-    }
+    });
 
     renderTable(
       data.headerRows || [],
@@ -419,37 +820,30 @@ function loadReport(reportName) {
       reportName
     );
 
-  })
-
-  .catch(err => {
+  } catch (err) {
     reportDiv.textContent = 'Ошибка загрузки: ' + err.message;
-  })
 
-  .finally(() => {
+  } finally {
     buttons.forEach(button => {
       button.disabled = false;
     });
-  });
+  }
 }
 
 
-/**
- * Ширина столбцов для каждого отчёта.
- */
-function getColumnWidths(reportName) {
+/* =====================================================
+   НАСТРОЙКИ ТАБЛИЦ
+===================================================== */
 
+function getColumnWidths(reportName) {
   const settings = {
     'Раздел 1': [85],
-
     'Раздел 2': [110, 85],
     'Раздел 3': [110, 85],
-
     'Раздел 4.1 без разбивки': [110, 125, 115],
     'Раздел 4': [110, 125, 115],
-
     'Раздел 5': [110, 90],
     'Раздел 5 (с кэф)': [110, 90],
-
     'Раздел 5 по часам': [110, 105, 125, 115],
     'Раздел 5 (по часам с кэф)': [110, 105, 125, 115]
   };
@@ -458,23 +852,15 @@ function getColumnWidths(reportName) {
 }
 
 
-/**
- * Базовое количество закреплённых столбцов.
- */
 function getFrozenColumns(reportName) {
-
   const settings = {
     'Раздел 1': 1,
-
     'Раздел 2': 2,
     'Раздел 3': 2,
-
     'Раздел 4.1 без разбивки': 3,
     'Раздел 4': 3,
-
     'Раздел 5': 2,
     'Раздел 5 (с кэф)': 2,
-
     'Раздел 5 по часам': 4,
     'Раздел 5 (по часам с кэф)': 4
   };
@@ -483,11 +869,7 @@ function getFrozenColumns(reportName) {
 }
 
 
-/**
- * Проверяет, полностью ли пустой столбец.
- */
 function isColumnEmpty(headerRows, rows, columnIndex) {
-
   const allRows = headerRows.concat(rows);
 
   return allRows.every(row => {
@@ -496,11 +878,11 @@ function isColumnEmpty(headerRows, rows, columnIndex) {
 }
 
 
-/**
- * Формирование таблицы.
- */
-function renderTable(headerRows, rows, reportName) {
+/* =====================================================
+   ОТРИСОВКА ОТЧЁТА
+===================================================== */
 
+function renderTable(headerRows, rows, reportName) {
   const reportDiv = document.getElementById('report');
   const title = reportDiv.querySelector('.report-title');
 
@@ -520,43 +902,30 @@ function renderTable(headerRows, rows, reportName) {
 
   const columnWidths = getColumnWidths(reportName);
 
-  // Определяем закреплённые столбцы.
   const frozenColumns = new Set();
-
   const baseFrozenCount = getFrozenColumns(reportName);
 
   for (let i = 0; i < baseFrozenCount; i++) {
     frozenColumns.add(i);
   }
 
-  // Для Раздела 5 не закрепляем пустые столбцы.
-  // Для Раздела 5 (с кэф) столбец "Значения"
-  // не закрепляется дополнительно.
-
-  // Скрываем все полностью пустые столбцы
-  // в Разделе 5, кроме первого столбца.
   const hiddenColumns = new Set();
 
   if (reportName === 'Раздел 5') {
-
     for (let i = 1; i < columnCount; i++) {
-
       if (isColumnEmpty(headerRows, rows, i)) {
         hiddenColumns.add(i);
       }
     }
   }
 
-  // Убираем скрытые столбцы из закрепления.
   hiddenColumns.forEach(index => {
     frozenColumns.delete(index);
   });
 
-  // Создаём ширины столбцов.
   const widths = [];
 
   for (let i = 0; i < columnCount; i++) {
-
     widths[i] = columnWidths[i] || 105;
 
     if (hiddenColumns.has(i)) {
@@ -564,24 +933,19 @@ function renderTable(headerRows, rows, reportName) {
     }
   }
 
-  // Считаем смещения закреплённых столбцов.
   const leftOffsets = {};
-
   let leftPosition = 0;
 
   for (let i = 0; i < columnCount; i++) {
-
     if (frozenColumns.has(i)) {
       leftOffsets[i] = leftPosition;
       leftPosition += widths[i];
     }
   }
 
-  // Создаём colgroup.
   const colgroup = document.createElement('colgroup');
 
   for (let i = 0; i < columnCount; i++) {
-
     const col = document.createElement('col');
 
     col.style.width = widths[i] + 'px';
@@ -595,20 +959,13 @@ function renderTable(headerRows, rows, reportName) {
 
   table.appendChild(colgroup);
 
-
-  // Заголовки таблицы.
   headerRows.forEach(row => {
-
     const tr = document.createElement('tr');
 
     for (let i = 0; i < columnCount; i++) {
-
-      if (hiddenColumns.has(i)) {
-        continue;
-      }
+      if (hiddenColumns.has(i)) continue;
 
       const th = document.createElement('th');
-
       th.textContent = row[i] || '';
 
       if (frozenColumns.has(i)) {
@@ -620,23 +977,15 @@ function renderTable(headerRows, rows, reportName) {
     }
 
     thead.appendChild(tr);
-
   });
 
-
-  // Строки данных.
   rows.forEach(row => {
-
     const tr = document.createElement('tr');
 
     for (let i = 0; i < columnCount; i++) {
-
-      if (hiddenColumns.has(i)) {
-        continue;
-      }
+      if (hiddenColumns.has(i)) continue;
 
       const td = document.createElement('td');
-
       td.textContent = row[i] || '';
 
       if (frozenColumns.has(i)) {
@@ -648,9 +997,7 @@ function renderTable(headerRows, rows, reportName) {
     }
 
     tbody.appendChild(tr);
-
   });
-
 
   table.appendChild(thead);
   table.appendChild(tbody);
@@ -659,12 +1006,9 @@ function renderTable(headerRows, rows, reportName) {
 
   reportDiv.replaceChildren(title, container);
 
-
-  // Закрепляем все строки заголовка сверху.
   let topPosition = 0;
 
   Array.from(thead.rows).forEach(tr => {
-
     const height = tr.getBoundingClientRect().height;
 
     tr.querySelectorAll('th').forEach(th => {
@@ -674,9 +1018,7 @@ function renderTable(headerRows, rows, reportName) {
     topPosition += height;
   });
 
-
   const info = document.createElement('p');
-
   info.className = 'user-info';
   info.textContent = 'Строк данных: ' + rows.length;
 
