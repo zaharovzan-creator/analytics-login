@@ -203,15 +203,52 @@
     <div class="user-info" id="userInfo"></div>
 
     <div class="report-buttons">
-      <button onclick="loadReport('Раздел 1')">Раздел 1</button>
-      <button onclick="loadReport('Раздел 2')">Раздел 2</button>
-      <button onclick="loadReport('Раздел 3')">Раздел 3</button>
-      <button onclick="loadReport('Раздел 4.1 без разбивки')">Раздел 4.1 без разбивки</button>
-      <button onclick="loadReport('Раздел 4')">Раздел 4</button>
-      <button onclick="loadReport('Раздел 5')">Раздел 5</button>
-      <button onclick="loadReport('Раздел 5 (с кэф)')">Раздел 5 (с кэф)</button>
-      <button onclick="loadReport('Раздел 5 по часам')">Раздел 5 по часам</button>
-      <button onclick="loadReport('Раздел 5 (по часам с кэф)')">Раздел 5 (по часам с кэф)</button>
+
+      <button data-report="Раздел 1"
+        onclick="loadReport('Раздел 1')">
+        Общий PriceIndex (РФ)
+      </button>
+
+      <button data-report="Раздел 2"
+        onclick="loadReport('Раздел 2')">
+        PriceIndex по неделям
+      </button>
+
+      <button data-report="Раздел 3"
+        onclick="loadReport('Раздел 3')">
+        PriceIndex по дням
+      </button>
+
+      <button data-report="Раздел 4.1 без разбивки"
+        onclick="loadReport('Раздел 4.1 без разбивки')">
+        PriceIndex по периодам и неделям
+      </button>
+
+      <button data-report="Раздел 4"
+        onclick="loadReport('Раздел 4')">
+        PriceIndex по периодам и неделям (Surge/без Surge)
+      </button>
+
+      <button data-report="Раздел 5"
+        onclick="loadReport('Раздел 5')">
+        PriceIndex по км и неделям
+      </button>
+
+      <button data-report="Раздел 5 (с кэф)"
+        onclick="loadReport('Раздел 5 (с кэф)')">
+        PriceIndex по км и неделям (Surge/без Surge)
+      </button>
+
+      <button data-report="Раздел 5 по часам"
+        onclick="loadReport('Раздел 5 по часам')">
+        PriceIndex по км, по периодам и неделям
+      </button>
+
+      <button data-report="Раздел 5 (по часам с кэф)"
+        onclick="loadReport('Раздел 5 (по часам с кэф)')">
+        PriceIndex по км, по периодам и неделям (Surge/без Surge)
+      </button>
+
     </div>
 
   </div>
@@ -225,6 +262,40 @@ const APPS_SCRIPT_URL =
 
 let currentToken = '';
 let currentUser = null;
+
+
+// Отображаемые названия отчётов.
+// Ключи остаются прежними, чтобы не менять связь с Google Таблицей.
+const REPORT_LABELS = {
+  'Раздел 1': 'Общий PriceIndex (РФ)',
+
+  'Раздел 2': 'PriceIndex по неделям',
+
+  'Раздел 3': 'PriceIndex по дням',
+
+  'Раздел 4.1 без разбивки':
+    'PriceIndex по периодам и неделям',
+
+  'Раздел 4':
+    'PriceIndex по периодам и неделям (Surge/без Surge)',
+
+  'Раздел 5':
+    'PriceIndex по км и неделям',
+
+  'Раздел 5 (с кэф)':
+    'PriceIndex по км и неделям (Surge/без Surge)',
+
+  'Раздел 5 по часам':
+    'PriceIndex по км, по периодам и неделям',
+
+  'Раздел 5 (по часам с кэф)':
+    'PriceIndex по км, по периодам и неделям (Surge/без Surge)'
+};
+
+
+function getReportLabel(reportName) {
+  return REPORT_LABELS[reportName] || reportName;
+}
 
 
 function handleCredentialResponse(response) {
@@ -297,7 +368,7 @@ function loadReport(reportName) {
 
   const title = document.createElement('h3');
   title.className = 'report-title';
-  title.textContent = reportName;
+  title.textContent = getReportLabel(reportName);
 
   const loading = document.createElement('div');
   loading.className = 'loading';
@@ -312,7 +383,7 @@ function loadReport(reportName) {
     button.disabled = true;
     button.classList.remove('active');
 
-    if (button.textContent.trim() === reportName) {
+    if (button.dataset.report === reportName) {
       button.classList.add('active');
     }
   });
@@ -460,7 +531,7 @@ function renderTable(headerRows, rows, reportName) {
 
   // Для Раздела 5 не закрепляем пустые столбцы.
   // Для Раздела 5 (с кэф) столбец "Значения"
-  // больше не закрепляется дополнительно.
+  // не закрепляется дополнительно.
 
   // Скрываем все полностью пустые столбцы
   // в Разделе 5, кроме первого столбца.
@@ -589,7 +660,7 @@ function renderTable(headerRows, rows, reportName) {
   reportDiv.replaceChildren(title, container);
 
 
-  // Закрепляем строки заголовка сверху.
+  // Закрепляем все строки заголовка сверху.
   let topPosition = 0;
 
   Array.from(thead.rows).forEach(tr => {
