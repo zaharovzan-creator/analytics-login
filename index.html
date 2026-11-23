@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Аналитика maxim</title>
+  <title>Аналитика (priceindex) РФ</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     * { box-sizing: border-box; }
@@ -52,11 +52,16 @@
     .admin-table td:last-child { white-space: nowrap; }
     .admin-table button { margin: 2px; padding: 6px 9px; font-size: 12px; }
     #adminStatus { margin: 10px 0; font-size: 13px; line-height: 1.5; }
+    .department-box { margin-top: 18px; max-width: 520px; }
+    .department-box label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 7px; }
+    .department-search, .department-select { width: 100%; padding: 10px; border: 1px solid #bbb; border-radius: 5px; font-size: 14px; background: #fff; }
+    .department-select { margin-top: 8px; }
+    .department-hint { color: #777; font-size: 12px; margin-top: 6px; }
     @media (max-width: 600px) { body { margin: 12px; } .panel { padding: 12px; } }
   </style>
 </head>
 <body>
-  <h2>Аналитика maxim</h2>
+  <h2>Аналитика (priceindex) РФ</h2>
   <div class="panel">
     <div id="g_id_onload"
       data-client_id="405088895649-r0p9j00so0u7lrm31h5mv7rskf5pobfs.apps.googleusercontent.com"
@@ -78,41 +83,22 @@
         <button onclick="loadAdminUsers()">Обновить список</button>
       </div>
       <div id="adminStatus"></div>
-
       <div class="admin-form" id="userForm" style="display:none;">
         <h4 id="formTitle">Новый пользователь</h4>
-        <div class="form-field">
-          <label for="userEmail">Google-почта</label>
-          <input type="email" id="userEmail" placeholder="user@gmail.com" autocomplete="off">
-        </div>
-        <div class="form-field">
-          <label for="userFullName">ФИО сотрудника</label>
-          <input type="text" id="userFullName" placeholder="Иванов Иван Иванович" autocomplete="off">
-        </div>
-        <div class="form-field">
-          <label for="userRole">Роль</label>
-          <select id="userRole" onchange="changeRoleFields()">
-            <option value="user">Пользователь</option>
-            <option value="admin">Администратор</option>
-          </select>
-        </div>
-        <div class="form-field" id="citiesField">
-          <label for="userCities">Города через запятую</label>
-          <input type="text" id="userCities" placeholder="Максим Курган, Максим Тюмень" autocomplete="off">
-          <div class="form-hint">Названия должны совпадать с названиями подразделений в сводных таблицах.</div>
-        </div>
-        <div class="admin-actions">
-          <button class="primary-button" id="saveUserButton" onclick="saveUserForm()">Сохранить</button>
-          <button onclick="cancelUserForm()">Отмена</button>
-        </div>
+        <div class="form-field"><label for="userEmail">Google-почта</label><input type="email" id="userEmail" placeholder="user@gmail.com" autocomplete="off"></div>
+        <div class="form-field"><label for="userFullName">ФИО сотрудника</label><input type="text" id="userFullName" placeholder="Иванов Иван Иванович" autocomplete="off"></div>
+        <div class="form-field"><label for="userRole">Роль</label><select id="userRole" onchange="changeRoleFields()"><option value="user">Пользователь</option><option value="admin">Администратор</option></select></div>
+        <div class="form-field" id="citiesField"><label for="userCities">Города через запятую</label><input type="text" id="userCities" placeholder="Максим Курган, Максим Тюмень" autocomplete="off"><div class="form-hint">Названия должны совпадать с названиями подразделений в сводных таблицах.</div></div>
+        <div class="admin-actions"><button class="primary-button" id="saveUserButton" onclick="saveUserForm()">Сохранить</button><button onclick="cancelUserForm()">Отмена</button></div>
       </div>
+      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Email</th><th>ФИО сотрудника</th><th>Роль</th><th>Города</th><th>Последний просмотр отчёта</th><th>Действия</th></tr></thead><tbody id="usersTableBody"><tr><td colspan="6">Загрузка...</td></tr></tbody></table></div>
+    </div>
 
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>Email</th><th>ФИО сотрудника</th><th>Роль</th><th>Города</th><th>Последний просмотр отчёта</th><th>Действия</th></tr></thead>
-          <tbody id="usersTableBody"><tr><td colspan="6">Загрузка...</td></tr></tbody>
-        </table>
-      </div>
+    <div class="department-box" id="departmentBox" style="display:none;">
+      <label for="departmentSearch">Подразделение</label>
+      <input class="department-search" id="departmentSearch" type="search" placeholder="Поиск подразделения..." autocomplete="off" oninput="filterDepartmentOptions()">
+      <select class="department-select" id="departmentSelect" onchange="onDepartmentChange()"></select>
+      <div class="department-hint" id="departmentHint"></div>
     </div>
 
     <div class="report-buttons">
@@ -131,31 +117,25 @@
 
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6vfEYaw6pFjp2EvTK63JX1t2fmlpGjS6CXy8tHryopvDJt7w94GBJc0RRkwSONw/exec';
+const ALL_DEPARTMENTS = '__ALL__';
 let currentToken = '';
 let currentUser = null;
 let editingEmail = null;
+let activeReportName = '';
+let allDepartmentOptions = [];
+let selectedDepartment = '';
 
 const REPORT_LABELS = {
-  'Раздел 1': 'Общий PriceIndex (РФ)',
-  'Раздел 2': 'PriceIndex по неделям',
-  'Раздел 3': 'PriceIndex по дням',
-  'Раздел 4.1 без разбивки': 'PriceIndex по периодам и неделям',
-  'Раздел 4': 'PriceIndex по периодам и неделям (Surge/без Surge)',
-  'Раздел 5': 'PriceIndex по км и неделям',
-  'Раздел 5 (с кэф)': 'PriceIndex по км и неделям (Surge/без Surge)',
-  'Раздел 5 по часам': 'PriceIndex по км, по периодам и неделям',
-  'Раздел 5 (по часам с кэф)': 'PriceIndex по км, по периодам и неделям (Surge/без Surge)'
+  'Раздел 1': 'Общий PriceIndex (РФ)', 'Раздел 2': 'PriceIndex по неделям', 'Раздел 3': 'PriceIndex по дням',
+  'Раздел 4.1 без разбивки': 'PriceIndex по периодам и неделям', 'Раздел 4': 'PriceIndex по периодам и неделям (Surge/без Surge)',
+  'Раздел 5': 'PriceIndex по км и неделям', 'Раздел 5 (с кэф)': 'PriceIndex по км и неделям (Surge/без Surge)',
+  'Раздел 5 по часам': 'PriceIndex по км, по периодам и неделям', 'Раздел 5 (по часам с кэф)': 'PriceIndex по км, по периодам и неделям (Surge/без Surge)'
 };
-
 function getReportLabel(name) { return REPORT_LABELS[name] || name; }
 
 async function apiRequest(data) {
-  const response = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ token: currentToken, ...data }),
-    redirect: 'follow'
-  });
+  const response = await fetch(APPS_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: currentToken, ...data }), redirect: 'follow' });
   if (!response.ok) throw new Error('Ошибка сервера: ' + response.status);
   const result = await response.json();
   if (!result.success) throw new Error(result.error || 'Ошибка выполнения запроса');
@@ -165,381 +145,187 @@ async function apiRequest(data) {
 async function handleCredentialResponse(response) {
   currentToken = response.credential;
   const statusDiv = document.getElementById('status');
-  statusDiv.className = '';
-  statusDiv.textContent = 'Проверка доступа...';
+  statusDiv.className = ''; statusDiv.textContent = 'Проверка доступа...';
   document.getElementById('reports').style.display = 'none';
   document.getElementById('report').replaceChildren();
   document.getElementById('adminPanel').style.display = 'none';
   document.getElementById('adminButton').style.display = 'none';
-
+  document.getElementById('departmentBox').style.display = 'none';
   try {
     const data = await apiRequest({});
     currentUser = data;
-    statusDiv.className = 'success';
-    statusDiv.textContent = 'Авторизация успешна!';
-    document.getElementById('userInfo').textContent =
-      'Пользователь: ' + data.email +
-      (data.fullName ? ' (' + data.fullName + ')' : '') +
-      ' | Роль: ' + (data.role === 'admin' ? 'Администратор' : 'Пользователь');
+    statusDiv.className = 'success'; statusDiv.textContent = 'Авторизация успешна!';
+    document.getElementById('userInfo').textContent = 'Пользователь: ' + data.email + (data.fullName ? ' (' + data.fullName + ')' : '') + ' | Роль: ' + (data.role === 'admin' ? 'Администратор' : 'Пользователь');
     document.getElementById('reports').style.display = 'block';
     if (data.role === 'admin') document.getElementById('adminButton').style.display = 'inline-block';
-  } catch (err) {
-    statusDiv.className = 'error';
-    statusDiv.textContent = 'Ошибка: ' + err.message;
-  }
+    setupDepartments(data.departments || data.cities || [], data.role === 'admin');
+  } catch (err) { statusDiv.className = 'error'; statusDiv.textContent = 'Ошибка: ' + err.message; }
+}
+
+function setupDepartments(departments, isAdmin) {
+  allDepartmentOptions = [];
+  if (isAdmin) allDepartmentOptions.push({ value: ALL_DEPARTMENTS, label: 'Все подразделения' });
+  (departments || []).forEach(name => {
+    const value = String(name || '').trim();
+    if (value && value.indexOf('Ф Максим') !== 0 && !allDepartmentOptions.some(x => x.value === value)) allDepartmentOptions.push({ value, label: value });
+  });
+  if (!allDepartmentOptions.length) throw new Error('Для вашей учётной записи не назначены подразделения');
+  selectedDepartment = allDepartmentOptions[0].value;
+  document.getElementById('departmentBox').style.display = 'block';
+  document.getElementById('departmentSearch').value = '';
+  document.getElementById('departmentHint').textContent = isAdmin ? 'Администратор может выбрать одно подразделение или посмотреть все сразу.' : 'Доступны только подразделения, назначенные вашей учётной записи.';
+  renderDepartmentOptions();
+}
+
+function renderDepartmentOptions(filterText) {
+  const select = document.getElementById('departmentSelect');
+  const current = selectedDepartment;
+  const query = String(filterText == null ? document.getElementById('departmentSearch').value : filterText).trim().toLocaleLowerCase('ru');
+  const filtered = allDepartmentOptions.filter(item => !query || item.label.toLocaleLowerCase('ru').includes(query));
+  // Не теряем текущее значение, если оно не совпало с поисковым запросом.
+  const currentItem = allDepartmentOptions.find(item => item.value === current);
+  if (currentItem && !filtered.some(item => item.value === current)) filtered.unshift(currentItem);
+  select.replaceChildren();
+  filtered.forEach(item => {
+    const option = document.createElement('option'); option.value = item.value; option.textContent = item.label; select.appendChild(option);
+  });
+  if (filtered.some(item => item.value === current)) select.value = current;
+  else if (filtered.length) select.value = filtered[0].value;
+  else { const option = document.createElement('option'); option.value = ''; option.textContent = 'Ничего не найдено'; select.appendChild(option); }
+}
+function filterDepartmentOptions() { renderDepartmentOptions(); }
+function onDepartmentChange() {
+  selectedDepartment = document.getElementById('departmentSelect').value;
+  if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
 }
 
 function toggleAdminPanel() {
   if (!currentUser || currentUser.role !== 'admin') return;
-  const panel = document.getElementById('adminPanel');
-  const open = panel.style.display === 'block';
-  panel.style.display = open ? 'none' : 'block';
-  if (!open) loadAdminUsers();
+  const panel = document.getElementById('adminPanel'), open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block'; if (!open) loadAdminUsers();
 }
-
-function setAdminStatus(message, type) {
-  const el = document.getElementById('adminStatus');
-  el.className = type || '';
-  el.textContent = message || '';
-}
-
+function setAdminStatus(message, type) { const el = document.getElementById('adminStatus'); el.className = type || ''; el.textContent = message || ''; }
 async function loadAdminUsers() {
   if (!currentUser || currentUser.role !== 'admin') return;
-  const tbody = document.getElementById('usersTableBody');
-  tbody.innerHTML = '<tr><td colspan="6">Загрузка пользователей...</td></tr>';
-  setAdminStatus('', '');
-  try {
-    const data = await apiRequest({ action: 'listUsers' });
-    renderUsersTable(data.users || []);
-  } catch (error) {
-    tbody.innerHTML = '<tr><td colspan="6">Не удалось загрузить список</td></tr>';
-    setAdminStatus(error.message, 'error');
-  }
+  const tbody = document.getElementById('usersTableBody'); tbody.innerHTML = '<tr><td colspan="6">Загрузка пользователей...</td></tr>'; setAdminStatus('', '');
+  try { const data = await apiRequest({ action: 'listUsers' }); renderUsersTable(data.users || []); }
+  catch (error) { tbody.innerHTML = '<tr><td colspan="6">Не удалось загрузить список</td></tr>'; setAdminStatus(error.message, 'error'); }
 }
-
-function formatLastViewed(value) {
-  if (!value) return '—';
-  // Backend возвращает дату в часовом поясе Apps Script в формате dd.MM.yyyy HH:mm:ss.
-  return String(value);
-}
-
+function formatLastViewed(value) { return value ? String(value) : '—'; }
 function renderUsersTable(users) {
-  const tbody = document.getElementById('usersTableBody');
-  tbody.replaceChildren();
-  if (!users.length) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 6;
-    td.textContent = 'Пользователей пока нет';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-    return;
-  }
+  const tbody = document.getElementById('usersTableBody'); tbody.replaceChildren();
+  if (!users.length) { const tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = 6; td.textContent = 'Пользователей пока нет'; tr.appendChild(td); tbody.appendChild(tr); return; }
   users.forEach(user => {
-    const tr = document.createElement('tr');
-    const email = document.createElement('td'); email.textContent = user.email;
-    const fullName = document.createElement('td'); fullName.textContent = user.fullName || '';
-    const role = document.createElement('td');
-    role.textContent = user.role === 'admin' ? 'Администратор' : 'Пользователь';
-    const cities = document.createElement('td');
-    cities.textContent = user.role === 'admin' ? 'Все города' : (user.cities || []).join(', ');
-    const lastViewed = document.createElement('td');
-    lastViewed.textContent = formatLastViewed(user.lastViewedAt);
-    const actions = document.createElement('td');
-    const edit = document.createElement('button');
-    edit.textContent = 'Изменить'; edit.addEventListener('click', () => editUser(user));
-    const del = document.createElement('button');
-    del.textContent = 'Удалить'; del.className = 'danger-button';
-    del.addEventListener('click', () => removeUser(user.email));
-    actions.append(edit, del);
-    tr.append(email, fullName, role, cities, lastViewed, actions);
-    tbody.appendChild(tr);
+    const tr = document.createElement('tr'), email = document.createElement('td'), fullName = document.createElement('td'), role = document.createElement('td'), cities = document.createElement('td'), lastViewed = document.createElement('td'), actions = document.createElement('td');
+    email.textContent = user.email; fullName.textContent = user.fullName || ''; role.textContent = user.role === 'admin' ? 'Администратор' : 'Пользователь';
+    cities.textContent = user.role === 'admin' ? 'Все города' : (user.cities || []).join(', '); lastViewed.textContent = formatLastViewed(user.lastViewedAt);
+    const edit = document.createElement('button'); edit.textContent = 'Изменить'; edit.addEventListener('click', () => editUser(user));
+    const del = document.createElement('button'); del.textContent = 'Удалить'; del.className = 'danger-button'; del.addEventListener('click', () => removeUser(user.email));
+    actions.append(edit, del); tr.append(email, fullName, role, cities, lastViewed, actions); tbody.appendChild(tr);
   });
 }
-
 function newUser() {
-  editingEmail = null;
-  document.getElementById('formTitle').textContent = 'Добавление пользователя';
-  document.getElementById('userEmail').value = '';
-  document.getElementById('userEmail').disabled = false;
-  document.getElementById('userFullName').value = '';
-  document.getElementById('userRole').value = 'user';
-  document.getElementById('userCities').value = '';
-  changeRoleFields();
-  document.getElementById('userForm').style.display = 'block';
-  setAdminStatus('', '');
-  document.getElementById('userEmail').focus();
+  editingEmail = null; document.getElementById('formTitle').textContent = 'Добавление пользователя';
+  document.getElementById('userEmail').value = ''; document.getElementById('userEmail').disabled = false;
+  document.getElementById('userFullName').value = ''; document.getElementById('userRole').value = 'user'; document.getElementById('userCities').value = '';
+  changeRoleFields(); document.getElementById('userForm').style.display = 'block'; setAdminStatus('', ''); document.getElementById('userEmail').focus();
 }
-
 function editUser(user) {
-  editingEmail = user.email;
-  document.getElementById('formTitle').textContent = 'Редактирование пользователя';
-  document.getElementById('userEmail').value = user.email;
-  document.getElementById('userEmail').disabled = true;
-  document.getElementById('userFullName').value = user.fullName || '';
-  document.getElementById('userRole').value = user.role;
-  document.getElementById('userCities').value = (user.cities || []).join(', ');
-  changeRoleFields();
-  document.getElementById('userForm').style.display = 'block';
-  setAdminStatus('', '');
-  document.getElementById('userForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  editingEmail = user.email; document.getElementById('formTitle').textContent = 'Редактирование пользователя';
+  document.getElementById('userEmail').value = user.email; document.getElementById('userEmail').disabled = true;
+  document.getElementById('userFullName').value = user.fullName || ''; document.getElementById('userRole').value = user.role;
+  document.getElementById('userCities').value = (user.cities || []).join(', '); changeRoleFields();
+  document.getElementById('userForm').style.display = 'block'; setAdminStatus('', ''); document.getElementById('userForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-
-function changeRoleFields() {
-  document.getElementById('citiesField').style.display =
-    document.getElementById('userRole').value === 'admin' ? 'none' : 'block';
-}
-
-function cancelUserForm() {
-  editingEmail = null;
-  document.getElementById('userForm').style.display = 'none';
-  document.getElementById('userEmail').disabled = false;
-  setAdminStatus('', '');
-}
-
+function changeRoleFields() { document.getElementById('citiesField').style.display = document.getElementById('userRole').value === 'admin' ? 'none' : 'block'; }
+function cancelUserForm() { editingEmail = null; document.getElementById('userForm').style.display = 'none'; document.getElementById('userEmail').disabled = false; setAdminStatus('', ''); }
 async function saveUserForm() {
-  const email = document.getElementById('userEmail').value.trim();
-  const fullName = document.getElementById('userFullName').value.trim();
-  const role = document.getElementById('userRole').value;
-  const cities = document.getElementById('userCities').value.trim();
-  const button = document.getElementById('saveUserButton');
-
+  const email = document.getElementById('userEmail').value.trim(), fullName = document.getElementById('userFullName').value.trim(), role = document.getElementById('userRole').value, cities = document.getElementById('userCities').value.trim(), button = document.getElementById('saveUserButton');
   if (!email) return setAdminStatus('Укажите email пользователя', 'error');
   if (!fullName) return setAdminStatus('Укажите ФИО сотрудника', 'error');
   if (role === 'user' && !cities) return setAdminStatus('Укажите хотя бы один город', 'error');
-
-  button.disabled = true;
-  button.textContent = 'Сохранение...';
-  try {
-    const data = await apiRequest({
-      action: 'saveUser', email: email, fullName: fullName, role: role, cities: cities
-    });
-    setAdminStatus(data.message, 'success');
-    cancelUserForm();
-    await loadAdminUsers();
-  } catch (error) {
-    setAdminStatus(error.message, 'error');
-  } finally {
-    button.disabled = false;
-    button.textContent = 'Сохранить';
-  }
+  button.disabled = true; button.textContent = 'Сохранение...';
+  try { const data = await apiRequest({ action: 'saveUser', email, fullName, role, cities }); setAdminStatus(data.message, 'success'); cancelUserForm(); await loadAdminUsers(); }
+  catch (error) { setAdminStatus(error.message, 'error'); }
+  finally { button.disabled = false; button.textContent = 'Сохранить'; }
 }
-
 async function removeUser(email) {
-  if (email === currentUser.email) {
-    alert('Нельзя удалить собственную учётную запись.');
-    return;
-  }
+  if (email === currentUser.email) { alert('Нельзя удалить собственную учётную запись.'); return; }
   if (!confirm('Удалить пользователя ' + email + '?')) return;
-  try {
-    const data = await apiRequest({ action: 'deleteUser', email: email });
-    setAdminStatus(data.message, 'success');
-    await loadAdminUsers();
-  } catch (error) {
-    setAdminStatus(error.message, 'error');
-  }
+  try { const data = await apiRequest({ action: 'deleteUser', email }); setAdminStatus(data.message, 'success'); await loadAdminUsers(); }
+  catch (error) { setAdminStatus(error.message, 'error'); }
 }
 
 async function loadReport(reportName) {
   if (!currentToken) { alert('Сначала необходимо авторизоваться'); return; }
-  const reportDiv = document.getElementById('report');
-  reportDiv.innerHTML = '';
-  const title = document.createElement('h3');
-  title.className = 'report-title';
-  title.textContent = getReportLabel(reportName);
-  const loading = document.createElement('div');
-  loading.className = 'loading';
-  loading.textContent = 'Загрузка отчёта...';
-  reportDiv.append(title, loading);
-
+  activeReportName = reportName;
+  const reportDiv = document.getElementById('report'); reportDiv.innerHTML = '';
+  const title = document.createElement('h3'); title.className = 'report-title'; title.textContent = getReportLabel(reportName);
+  const loading = document.createElement('div'); loading.className = 'loading'; loading.textContent = 'Загрузка отчёта...'; reportDiv.append(title, loading);
   const buttons = document.querySelectorAll('.report-buttons button');
-  buttons.forEach(button => {
-    button.disabled = true;
-    button.classList.toggle('active', button.dataset.report === reportName);
-  });
-
+  buttons.forEach(button => { button.disabled = true; button.classList.toggle('active', button.dataset.report === reportName); });
   try {
-    const data = await apiRequest({ report: reportName });
+    const request = { report: reportName };
+    if (reportName !== 'Раздел 1') request.department = selectedDepartment;
+    const data = await apiRequest(request);
     renderTable(data.headerRows || [], data.rows || [], reportName);
-    if (currentUser && currentUser.role === 'admin' && document.getElementById('adminPanel').style.display === 'block') {
-      await loadAdminUsers();
-    }
-  } catch (err) {
-    reportDiv.textContent = 'Ошибка загрузки: ' + err.message;
-  } finally {
-    buttons.forEach(button => { button.disabled = false; });
-  }
+    if (currentUser && currentUser.role === 'admin' && document.getElementById('adminPanel').style.display === 'block') await loadAdminUsers();
+  } catch (err) { reportDiv.textContent = 'Ошибка загрузки: ' + err.message; }
+  finally { buttons.forEach(button => { button.disabled = false; }); }
 }
 
 function getColumnWidths(reportName) {
-  const settings = {
-    'Раздел 1': [85],
-    'Раздел 2': [110, 85],
-    'Раздел 3': [110, 85],
-    'Раздел 4.1 без разбивки': [110, 125, 115],
-    'Раздел 4': [110, 125, 115],
-    'Раздел 5': [110, 90],
-    'Раздел 5 (с кэф)': [110, 90],
-    'Раздел 5 по часам': [110, 105, 125, 115],
-    'Раздел 5 (по часам с кэф)': [110, 105, 125, 115]
-  };
+  const settings = { 'Раздел 1': [85], 'Раздел 2': [110, 85], 'Раздел 3': [110, 85], 'Раздел 4.1 без разбивки': [110, 125, 115], 'Раздел 4': [110, 125, 115], 'Раздел 5': [110, 90], 'Раздел 5 (с кэф)': [110, 90], 'Раздел 5 по часам': [110, 105, 125, 115], 'Раздел 5 (по часам с кэф)': [110, 105, 125, 115] };
   return settings[reportName] || [110, 110, 110, 110];
 }
-
 function getFrozenColumns(reportName) {
-  const settings = {
-    'Раздел 1': 1, 'Раздел 2': 2, 'Раздел 3': 2,
-    'Раздел 4.1 без разбивки': 3, 'Раздел 4': 3,
-    'Раздел 5': 2, 'Раздел 5 (с кэф)': 2,
-    'Раздел 5 по часам': 4, 'Раздел 5 (по часам с кэф)': 4
-  };
+  const settings = { 'Раздел 1': 1, 'Раздел 2': 2, 'Раздел 3': 2, 'Раздел 4.1 без разбивки': 3, 'Раздел 4': 3, 'Раздел 5': 2, 'Раздел 5 (с кэф)': 2, 'Раздел 5 по часам': 4, 'Раздел 5 (по часам с кэф)': 4 };
   return settings[reportName] || 1;
 }
-
-function isColumnEmpty(headerRows, rows, columnIndex) {
-  return headerRows.concat(rows).every(row => String(row[columnIndex] || '').trim() === '');
-}
-
-function normalizeMetricName(value) {
-  return String(value || '').toLowerCase().replace(/\s+/g, '').replace(/[_:]/g, '');
-}
-
-function isPriceIndexName(value) {
-  const name = normalizeMetricName(value);
-  // В разных сводных название метрики может содержать уточнение,
-  // знак процента или находиться не в первой ячейке строки.
-  return name.includes('priceindex');
-}
-
+function isColumnEmpty(headerRows, rows, columnIndex) { return headerRows.concat(rows).every(row => String(row[columnIndex] || '').trim() === ''); }
+function normalizeMetricName(value) { return String(value || '').toLowerCase().replace(/\s+/g, '').replace(/[_:]/g, ''); }
+function isPriceIndexName(value) { return normalizeMetricName(value).includes('priceindex'); }
 function getPriceIndexColor(value) {
-  let text = String(value == null ? '' : value)
-    .replace(/\u00a0/g, '')
-    .replace(/\s/g, '')
-    .replace('%', '')
-    .replace(',', '.');
-  const match = text.match(/^[-+]?(?:\d+\.?\d*|\.\d+)/);
-  if (!match) return null;
-  const number = Number(match[0]);
-  if (!Number.isFinite(number)) return null;
-  if (number <= 72) return '#D97706';
-  if (number <= 77) return '#16A34A';
-  if (number < 100) return '#DC2626';
-  return '#800020';
+  const text = String(value == null ? '' : value).replace(/\u00a0/g, '').replace(/\s/g, '').replace('%', '').replace(',', '.');
+  const match = text.match(/^[-+]?(?:\d+\.?\d*|\.\d+)/); if (!match) return null;
+  const number = Number(match[0]); if (!Number.isFinite(number)) return null;
+  if (number <= 72) return '#D97706'; if (number <= 77) return '#16A34A'; if (number < 100) return '#DC2626'; return '#800020';
 }
-
 function renderTable(headerRows, rows, reportName) {
-  const reportDiv = document.getElementById('report');
-  const title = reportDiv.querySelector('.report-title');
-  const container = document.createElement('div');
-  container.className = 'table-container';
-  const table = document.createElement('table');
-  const thead = document.createElement('thead');
-  const tbody = document.createElement('tbody');
-
-  const columnCount = Math.max(0, ...headerRows.map(row => row.length), ...rows.map(row => row.length));
-  const columnWidths = getColumnWidths(reportName);
-  const frozenColumns = new Set();
-  const baseFrozenCount = getFrozenColumns(reportName);
-  for (let i = 0; i < baseFrozenCount; i++) frozenColumns.add(i);
-
+  const reportDiv = document.getElementById('report'), title = reportDiv.querySelector('.report-title');
+  const container = document.createElement('div'); container.className = 'table-container';
+  const table = document.createElement('table'), thead = document.createElement('thead'), tbody = document.createElement('tbody');
+  const columnCount = Math.max(0, ...headerRows.map(row => row.length), ...rows.map(row => row.length)), columnWidths = getColumnWidths(reportName), frozenColumns = new Set();
+  for (let i = 0; i < getFrozenColumns(reportName); i++) frozenColumns.add(i);
   const hiddenColumns = new Set();
-  if (reportName === 'Раздел 5') {
-    for (let i = 1; i < columnCount; i++) {
-      if (isColumnEmpty(headerRows, rows, i)) hiddenColumns.add(i);
-    }
-  }
+  if (reportName === 'Раздел 5') for (let i = 1; i < columnCount; i++) if (isColumnEmpty(headerRows, rows, i)) hiddenColumns.add(i);
   hiddenColumns.forEach(index => frozenColumns.delete(index));
-
-  const priceIndexColumns = new Set();
-  headerRows.forEach(row => row.forEach((cell, index) => {
-    if (isPriceIndexName(cell)) priceIndexColumns.add(index);
-  }));
-
-  const widths = [];
-  for (let i = 0; i < columnCount; i++) {
-    widths[i] = hiddenColumns.has(i) ? 0 : (columnWidths[i] || 105);
-  }
-
-  const leftOffsets = {};
-  let leftPosition = 0;
-  for (let i = 0; i < columnCount; i++) {
-    if (frozenColumns.has(i)) {
-      leftOffsets[i] = leftPosition;
-      leftPosition += widths[i];
-    }
-  }
-
+  const priceIndexColumns = new Set(); headerRows.forEach(row => row.forEach((cell, index) => { if (isPriceIndexName(cell)) priceIndexColumns.add(index); }));
+  const widths = []; for (let i = 0; i < columnCount; i++) widths[i] = hiddenColumns.has(i) ? 0 : (columnWidths[i] || 105);
+  const leftOffsets = {}; let leftPosition = 0;
+  for (let i = 0; i < columnCount; i++) if (frozenColumns.has(i)) { leftOffsets[i] = leftPosition; leftPosition += widths[i]; }
   const colgroup = document.createElement('colgroup');
-  for (let i = 0; i < columnCount; i++) {
-    const col = document.createElement('col');
-    col.style.width = widths[i] + 'px';
-    if (hiddenColumns.has(i)) col.style.display = 'none';
-    colgroup.appendChild(col);
-  }
+  for (let i = 0; i < columnCount; i++) { const col = document.createElement('col'); col.style.width = widths[i] + 'px'; if (hiddenColumns.has(i)) col.style.display = 'none'; colgroup.appendChild(col); }
   table.appendChild(colgroup);
-
   headerRows.forEach(row => {
     const tr = document.createElement('tr');
-    for (let i = 0; i < columnCount; i++) {
-      if (hiddenColumns.has(i)) continue;
-      const th = document.createElement('th');
-      th.textContent = row[i] || '';
-      if (frozenColumns.has(i)) {
-        th.classList.add('sticky-col');
-        th.style.left = leftOffsets[i] + 'px';
-      }
-      tr.appendChild(th);
-    }
+    for (let i = 0; i < columnCount; i++) { if (hiddenColumns.has(i)) continue; const th = document.createElement('th'); th.textContent = row[i] || ''; if (frozenColumns.has(i)) { th.classList.add('sticky-col'); th.style.left = leftOffsets[i] + 'px'; } tr.appendChild(th); }
     thead.appendChild(tr);
   });
-
   rows.forEach(row => {
-    const tr = document.createElement('tr');
-    // Ищем подпись PriceIndex во всей строке, а не только в row[0].
-    // Это важно для горизонтальных сводных, где название метрики
-    // может располагаться во второй или последующей колонке.
-    const metricLabelIndex = row.findIndex(cell => isPriceIndexName(cell));
-    const isMetricRow = metricLabelIndex !== -1;
-
+    const tr = document.createElement('tr'), metricLabelIndex = row.findIndex(cell => isPriceIndexName(cell)), isMetricRow = metricLabelIndex !== -1;
     for (let i = 0; i < columnCount; i++) {
-      if (hiddenColumns.has(i)) continue;
-      const td = document.createElement('td');
-      td.textContent = row[i] || '';
-
-      // Если PriceIndex расположен в строке, окрашиваем всю строку.
-      // Если PriceIndex расположен в заголовке столбца, окрашиваем его значения.
-      if ((isMetricRow && i !== metricLabelIndex) || priceIndexColumns.has(i)) {
-        const color = getPriceIndexColor(row[i]);
-        if (color) {
-          td.style.color = color;
-          td.style.fontWeight = '600';
-        }
-      }
-
-      if (frozenColumns.has(i)) {
-        td.classList.add('sticky-col');
-        td.style.left = leftOffsets[i] + 'px';
-      }
+      if (hiddenColumns.has(i)) continue; const td = document.createElement('td'); td.textContent = row[i] || '';
+      if ((isMetricRow && i !== metricLabelIndex) || priceIndexColumns.has(i)) { const color = getPriceIndexColor(row[i]); if (color) { td.style.color = color; td.style.fontWeight = '600'; } }
+      if (frozenColumns.has(i)) { td.classList.add('sticky-col'); td.style.left = leftOffsets[i] + 'px'; }
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
   });
-
-  table.append(thead, tbody);
-  container.appendChild(table);
-  reportDiv.replaceChildren(title, container);
-
+  table.append(thead, tbody); container.appendChild(table); reportDiv.replaceChildren(title, container);
   let topPosition = 0;
-  Array.from(thead.rows).forEach(tr => {
-    const height = tr.getBoundingClientRect().height;
-    tr.querySelectorAll('th').forEach(th => { th.style.top = topPosition + 'px'; });
-    topPosition += height;
-  });
-
-  const info = document.createElement('p');
-  info.className = 'user-info';
-  info.textContent = 'Строк данных: ' + rows.length;
-  reportDiv.appendChild(info);
+  Array.from(thead.rows).forEach(tr => { const height = tr.getBoundingClientRect().height; tr.querySelectorAll('th').forEach(th => { th.style.top = topPosition + 'px'; }); topPosition += height; });
+  const info = document.createElement('p'); info.className = 'user-info'; info.textContent = 'Строк данных: ' + rows.length; reportDiv.appendChild(info);
 }
 </script>
 </body>
