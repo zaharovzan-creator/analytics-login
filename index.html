@@ -64,6 +64,7 @@
     .department-option:hover, .department-option:focus { background: #edf2f7; outline: none; }
     .department-empty { padding: 10px 12px; color: #777; font-size: 13px; }
     .department-hint { color: #777; font-size: 12px; margin-top: 6px; }
+    .preload-status { color: #555; font-size: 12px; line-height: 1.5; margin-top: 7px; min-height: 0; }
     @media (max-width: 600px) { body { margin: 12px; } .panel { padding: 12px; } }
   </style>
 </head>
@@ -109,6 +110,7 @@
         <div class="department-options" id="departmentOptions" role="listbox"></div>
       </div>
       <div class="department-hint" id="departmentHint"></div>
+      <div class="preload-status" id="preloadStatus" aria-live="polite"></div>
     </div>
 
     <div class="report-buttons">
@@ -134,6 +136,21 @@ let editingEmail = null;
 let activeReportName = '';
 let allDepartmentOptions = [];
 let selectedDepartment = '';
+let preloadRunId = 0;
+let reportRequestId = 0;
+const reportCache = new Map();
+const reportRequests = new Map();
+
+const CITY_REPORTS = [
+  'Раздел 2',
+  'Раздел 3',
+  'Раздел 4.1 без разбивки',
+  'Раздел 4',
+  'Раздел 5',
+  'Раздел 5 (с кэф)',
+  'Раздел 5 по часам',
+  'Раздел 5 (по часам с кэф)'
+];
 
 const REPORT_LABELS = {
   'Раздел 1': 'Общий PriceIndex (РФ)', 'Раздел 2': 'PriceIndex по неделям', 'Раздел 3': 'PriceIndex по дням',
@@ -190,6 +207,67 @@ function setupDepartments(departments, isAdmin) {
     ? 'Начните вводить название и выберите вариант из списка. Администратор может выбрать все подразделения.'
     : 'Начните вводить название и выберите подразделение из списка. Доступны только назначенные вам подразделения.';
   renderDepartmentOptions();
+  if (selectedDepartment !== ALL_DEPARTMENTS) preloadDepartmentReports(selectedDepartment);
+}
+
+function reportCacheKey(department, reportName) {
+  return department + '::' + reportName;
+}
+
+function setPreloadStatus(message) {
+  const el = document.getElementById('preloadStatus');
+  if (el) el.textContent = message || '';
+}
+
+function fetchDepartmentReport(department, reportName) {
+  const key = reportCacheKey(department, reportName);
+  if (reportCache.has(key)) return Promise.resolve(reportCache.get(key));
+  if (reportRequests.has(key)) return reportRequests.get(key);
+
+  const request = apiRequest({ report: reportName, department })
+    .then(data => {
+      reportCache.set(key, data);
+      return data;
+    })
+    .finally(() => reportRequests.delete(key));
+  reportRequests.set(key, request);
+  return request;
+}
+
+async function preloadDepartmentReports(department) {
+  if (!department || department === ALL_DEPARTMENTS) {
+    preloadRunId++;
+    setPreloadStatus('');
+    return;
+  }
+
+  const runId = ++preloadRunId;
+  let loaded = 0;
+  const errors = [];
+  const total = CITY_REPORTS.length;
+  setPreloadStatus('Загрузка отчётов для «' + department + '»: 0 из ' + total + '...');
+
+  for (const reportName of CITY_REPORTS) {
+    if (reportCache.has(reportCacheKey(department, reportName))) {
+      loaded++;
+      if (runId === preloadRunId) setPreloadStatus('Загрузка отчётов для «' + department + '»: ' + loaded + ' из ' + total + '...');
+      continue;
+    }
+    try {
+      await fetchDepartmentReport(department, reportName);
+    } catch (error) {
+      errors.push(getReportLabel(reportName) + ': ' + error.message);
+    }
+    loaded++;
+    if (runId === preloadRunId) setPreloadStatus('Загрузка отчётов для «' + department + '»: ' + loaded + ' из ' + total + '...');
+  }
+
+  if (runId !== preloadRunId) return;
+  if (errors.length) {
+    setPreloadStatus('Загружено ' + (total - errors.length) + ' из ' + total + '. Не удалось загрузить: ' + errors.join('; '));
+  } else {
+    setPreloadStatus('Все ' + total + ' отчётов загружены. Переключение между вкладками будет быстрым.');
+  }
 }
 
 function renderDepartmentOptions(filterText) {
@@ -249,7 +327,15 @@ function selectDepartment(item) {
   document.getElementById('departmentSearch').value = item.label;
   document.getElementById('departmentHint').textContent = item.label;
   closeDepartmentOptions();
-  if (changed && activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+  if (changed) {
+    if (selectedDepartment === ALL_DEPARTMENTS) {
+      preloadRunId++;
+      setPreloadStatus('');
+    } else {
+      preloadDepartmentReports(selectedDepartment);
+    }
+    if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+  }
 }
 
 function onDepartmentInput() {
@@ -260,7 +346,15 @@ function onDepartmentInput() {
     const changed = selectedDepartment !== exact.value;
     selectedDepartment = exact.value;
     document.getElementById('departmentHint').textContent = exact.label;
-    if (changed && activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+    if (changed) {
+      if (selectedDepartment === ALL_DEPARTMENTS) {
+        preloadRunId++;
+        setPreloadStatus('');
+      } else {
+        preloadDepartmentReports(selectedDepartment);
+      }
+      if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+    }
   } else {
     selectedDepartment = '';
     document.getElementById('departmentHint').textContent = 'Выберите подразделение из списка.';
@@ -354,19 +448,30 @@ async function loadReport(reportName) {
     return;
   }
   activeReportName = reportName;
+  const requestId = ++reportRequestId;
+  const requestedDepartment = selectedDepartment;
   const reportDiv = document.getElementById('report'); reportDiv.innerHTML = '';
   const title = document.createElement('h3'); title.className = 'report-title'; title.textContent = getReportLabel(reportName);
   const loading = document.createElement('div'); loading.className = 'loading'; loading.textContent = 'Загрузка отчёта...'; reportDiv.append(title, loading);
   const buttons = document.querySelectorAll('.report-buttons button');
   buttons.forEach(button => { button.disabled = true; button.classList.toggle('active', button.dataset.report === reportName); });
   try {
-    const request = { report: reportName };
-    if (reportName !== 'Раздел 1') request.department = selectedDepartment;
-    const data = await apiRequest(request);
+    let data;
+    if (reportName !== 'Раздел 1' && requestedDepartment !== ALL_DEPARTMENTS) {
+      data = await fetchDepartmentReport(requestedDepartment, reportName);
+    } else {
+      const request = { report: reportName };
+      if (reportName !== 'Раздел 1') request.department = requestedDepartment;
+      data = await apiRequest(request);
+    }
+    if (requestId !== reportRequestId || (reportName !== 'Раздел 1' && requestedDepartment !== selectedDepartment)) return;
     renderTable(data.headerRows || [], data.rows || [], reportName);
     if (currentUser && currentUser.role === 'admin' && document.getElementById('adminPanel').style.display === 'block') await loadAdminUsers();
-  } catch (err) { reportDiv.textContent = 'Ошибка загрузки: ' + err.message; }
-  finally { buttons.forEach(button => { button.disabled = false; }); }
+  } catch (err) {
+    if (requestId === reportRequestId && (reportName === 'Раздел 1' || requestedDepartment === selectedDepartment)) reportDiv.textContent = 'Ошибка загрузки: ' + err.message;
+  } finally {
+    if (requestId === reportRequestId) buttons.forEach(button => { button.disabled = false; });
+  }
 }
 
 function getColumnWidths(reportName) {
