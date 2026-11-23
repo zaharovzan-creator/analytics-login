@@ -54,8 +54,7 @@
     #adminStatus { margin: 10px 0; font-size: 13px; line-height: 1.5; }
     .department-box { margin-top: 18px; max-width: 520px; }
     .department-box label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 7px; }
-    .department-search, .department-select { width: 100%; padding: 10px; border: 1px solid #bbb; border-radius: 5px; font-size: 14px; background: #fff; }
-    .department-select { margin-top: 8px; }
+    .department-search { width: 100%; padding: 10px; border: 1px solid #bbb; border-radius: 5px; font-size: 14px; background: #fff; }
     .department-hint { color: #777; font-size: 12px; margin-top: 6px; }
     @media (max-width: 600px) { body { margin: 12px; } .panel { padding: 12px; } }
   </style>
@@ -96,8 +95,8 @@
 
     <div class="department-box" id="departmentBox" style="display:none;">
       <label for="departmentSearch">Подразделение</label>
-      <input class="department-search" id="departmentSearch" type="search" placeholder="Поиск подразделения..." autocomplete="off" oninput="filterDepartmentOptions()">
-      <select class="department-select" id="departmentSelect" onchange="onDepartmentChange()"></select>
+      <input class="department-search" id="departmentSearch" type="text" list="departmentOptions" placeholder="Начните вводить или выберите подразделение..." autocomplete="off" onchange="onDepartmentChange()" oninput="onDepartmentInput()">
+      <datalist id="departmentOptions"></datalist>
       <div class="department-hint" id="departmentHint"></div>
     </div>
 
@@ -167,35 +166,49 @@ function setupDepartments(departments, isAdmin) {
   if (isAdmin) allDepartmentOptions.push({ value: ALL_DEPARTMENTS, label: 'Все подразделения' });
   (departments || []).forEach(name => {
     const value = String(name || '').trim();
-    if (value && value.indexOf('Ф Максим') !== 0 && !allDepartmentOptions.some(x => x.value === value)) allDepartmentOptions.push({ value, label: value });
+    if (value && value.indexOf('Ф Максим') !== 0 && !allDepartmentOptions.some(x => x.value === value)) {
+      allDepartmentOptions.push({ value, label: value });
+    }
   });
   if (!allDepartmentOptions.length) throw new Error('Для вашей учётной записи не назначены подразделения');
+
   selectedDepartment = allDepartmentOptions[0].value;
   document.getElementById('departmentBox').style.display = 'block';
-  document.getElementById('departmentSearch').value = '';
-  document.getElementById('departmentHint').textContent = isAdmin ? 'Администратор может выбрать одно подразделение или посмотреть все сразу.' : 'Доступны только подразделения, назначенные вашей учётной записи.';
+  document.getElementById('departmentSearch').value = allDepartmentOptions[0].label;
+  document.getElementById('departmentHint').textContent = isAdmin
+    ? 'Начните вводить название и выберите вариант из списка. Администратор может выбрать все подразделения.'
+    : 'Начните вводить название и выберите подразделение из списка. Доступны только назначенные вам подразделения.';
   renderDepartmentOptions();
 }
 
-function renderDepartmentOptions(filterText) {
-  const select = document.getElementById('departmentSelect');
-  const current = selectedDepartment;
-  const query = String(filterText == null ? document.getElementById('departmentSearch').value : filterText).trim().toLocaleLowerCase('ru');
-  const filtered = allDepartmentOptions.filter(item => !query || item.label.toLocaleLowerCase('ru').includes(query));
-  // Не теряем текущее значение, если оно не совпало с поисковым запросом.
-  const currentItem = allDepartmentOptions.find(item => item.value === current);
-  if (currentItem && !filtered.some(item => item.value === current)) filtered.unshift(currentItem);
-  select.replaceChildren();
-  filtered.forEach(item => {
-    const option = document.createElement('option'); option.value = item.value; option.textContent = item.label; select.appendChild(option);
+function renderDepartmentOptions() {
+  const datalist = document.getElementById('departmentOptions');
+  datalist.replaceChildren();
+  allDepartmentOptions.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.label;
+    datalist.appendChild(option);
   });
-  if (filtered.some(item => item.value === current)) select.value = current;
-  else if (filtered.length) select.value = filtered[0].value;
-  else { const option = document.createElement('option'); option.value = ''; option.textContent = 'Ничего не найдено'; select.appendChild(option); }
 }
-function filterDepartmentOptions() { renderDepartmentOptions(); }
+
+function onDepartmentInput() {
+  const input = document.getElementById('departmentSearch');
+  const typedValue = input.value.trim().toLocaleLowerCase('ru');
+  const match = allDepartmentOptions.find(item => item.label.toLocaleLowerCase('ru') === typedValue);
+  if (!match) {
+    selectedDepartment = '';
+    document.getElementById('departmentHint').textContent = 'Выберите подразделение из предложенного списка.';
+    return;
+  }
+  const changed = selectedDepartment !== match.value;
+  selectedDepartment = match.value;
+  document.getElementById('departmentHint').textContent = match.label;
+  if (changed && activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+}
+
 function onDepartmentChange() {
-  selectedDepartment = document.getElementById('departmentSelect').value;
+  onDepartmentInput();
+  if (!selectedDepartment) return;
   if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
 }
 
@@ -258,6 +271,10 @@ async function removeUser(email) {
 
 async function loadReport(reportName) {
   if (!currentToken) { alert('Сначала необходимо авторизоваться'); return; }
+  if (reportName !== 'Раздел 1' && !selectedDepartment) {
+    alert('Сначала выберите подразделение из списка.');
+    return;
+  }
   activeReportName = reportName;
   const reportDiv = document.getElementById('report'); reportDiv.innerHTML = '';
   const title = document.createElement('h3'); title.className = 'report-title'; title.textContent = getReportLabel(reportName);
