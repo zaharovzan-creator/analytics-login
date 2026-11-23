@@ -54,7 +54,15 @@
     #adminStatus { margin: 10px 0; font-size: 13px; line-height: 1.5; }
     .department-box { margin-top: 18px; max-width: 520px; }
     .department-box label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 7px; }
-    .department-search { width: 100%; padding: 10px; border: 1px solid #bbb; border-radius: 5px; font-size: 14px; background: #fff; }
+    .department-picker { position: relative; }
+    .department-search { width: 100%; padding: 10px 38px 10px 10px; border: 1px solid #bbb; border-radius: 5px; font-size: 14px; background: #fff; }
+    .department-search:focus { outline: 2px solid #b8c9e6; border-color: #536f9f; }
+    .department-chevron { position: absolute; right: 4px; top: 4px; width: 32px; height: 34px; padding: 0; border: 0; background: transparent; font-size: 18px; color: #555; }
+    .department-options { display: none; position: absolute; z-index: 30; top: calc(100% + 3px); left: 0; right: 0; max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid #bbb; border-radius: 5px; box-shadow: 0 5px 16px rgba(0,0,0,.14); }
+    .department-options.open { display: block; }
+    .department-option { display: block; width: 100%; border: 0; border-radius: 0; padding: 10px 12px; text-align: left; background: #fff; font-size: 14px; }
+    .department-option:hover, .department-option:focus { background: #edf2f7; outline: none; }
+    .department-empty { padding: 10px 12px; color: #777; font-size: 13px; }
     .department-hint { color: #777; font-size: 12px; margin-top: 6px; }
     @media (max-width: 600px) { body { margin: 12px; } .panel { padding: 12px; } }
   </style>
@@ -95,8 +103,11 @@
 
     <div class="department-box" id="departmentBox" style="display:none;">
       <label for="departmentSearch">Подразделение</label>
-      <input class="department-search" id="departmentSearch" type="text" list="departmentOptions" placeholder="Начните вводить или выберите подразделение..." autocomplete="off" onchange="onDepartmentChange()" oninput="onDepartmentInput()">
-      <datalist id="departmentOptions"></datalist>
+      <div class="department-picker" id="departmentPicker">
+        <input class="department-search" id="departmentSearch" type="text" placeholder="Выберите или найдите подразделение..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="departmentOptions" onfocus="openDepartmentOptions()" onclick="openDepartmentOptions()" oninput="onDepartmentInput()" onkeydown="handleDepartmentKeydown(event)">
+        <button type="button" class="department-chevron" aria-label="Показать подразделения" onclick="toggleDepartmentOptions(event)">▾</button>
+        <div class="department-options" id="departmentOptions" role="listbox"></div>
+      </div>
       <div class="department-hint" id="departmentHint"></div>
     </div>
 
@@ -181,36 +192,103 @@ function setupDepartments(departments, isAdmin) {
   renderDepartmentOptions();
 }
 
-function renderDepartmentOptions() {
-  const datalist = document.getElementById('departmentOptions');
-  datalist.replaceChildren();
-  allDepartmentOptions.forEach(item => {
-    const option = document.createElement('option');
-    option.value = item.label;
-    datalist.appendChild(option);
+function renderDepartmentOptions(filterText) {
+  const list = document.getElementById('departmentOptions');
+  const filter = String(filterText || '').trim().toLocaleLowerCase('ru');
+  const matches = allDepartmentOptions.filter(item => item.label.toLocaleLowerCase('ru').includes(filter));
+  list.replaceChildren();
+  if (!matches.length) {
+    const empty = document.createElement('div');
+    empty.className = 'department-empty';
+    empty.textContent = 'Ничего не найдено';
+    list.appendChild(empty);
+    return;
+  }
+  matches.forEach(item => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'department-option';
+    option.setAttribute('role', 'option');
+    option.setAttribute('aria-selected', String(item.value === selectedDepartment));
+    option.textContent = item.label;
+    option.addEventListener('mousedown', event => event.preventDefault());
+    option.addEventListener('click', () => selectDepartment(item));
+    list.appendChild(option);
   });
+}
+
+function openDepartmentOptions() {
+  const input = document.getElementById('departmentSearch');
+  renderDepartmentOptions(input.value === (allDepartmentOptions.find(x => x.value === selectedDepartment) || {}).label ? '' : input.value);
+  const list = document.getElementById('departmentOptions');
+  list.classList.add('open');
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function closeDepartmentOptions() {
+  const list = document.getElementById('departmentOptions');
+  const input = document.getElementById('departmentSearch');
+  if (!list || !input) return;
+  list.classList.remove('open');
+  input.setAttribute('aria-expanded', 'false');
+}
+
+function toggleDepartmentOptions(event) {
+  event.preventDefault();
+  const list = document.getElementById('departmentOptions');
+  if (list.classList.contains('open')) closeDepartmentOptions();
+  else {
+    document.getElementById('departmentSearch').focus();
+    openDepartmentOptions();
+  }
+}
+
+function selectDepartment(item) {
+  const changed = selectedDepartment !== item.value;
+  selectedDepartment = item.value;
+  document.getElementById('departmentSearch').value = item.label;
+  document.getElementById('departmentHint').textContent = item.label;
+  closeDepartmentOptions();
+  if (changed && activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
 }
 
 function onDepartmentInput() {
   const input = document.getElementById('departmentSearch');
   const typedValue = input.value.trim().toLocaleLowerCase('ru');
-  const match = allDepartmentOptions.find(item => item.label.toLocaleLowerCase('ru') === typedValue);
-  if (!match) {
+  const exact = allDepartmentOptions.find(item => item.label.toLocaleLowerCase('ru') === typedValue);
+  if (exact) {
+    const changed = selectedDepartment !== exact.value;
+    selectedDepartment = exact.value;
+    document.getElementById('departmentHint').textContent = exact.label;
+    if (changed && activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+  } else {
     selectedDepartment = '';
-    document.getElementById('departmentHint').textContent = 'Выберите подразделение из предложенного списка.';
-    return;
+    document.getElementById('departmentHint').textContent = 'Выберите подразделение из списка.';
   }
-  const changed = selectedDepartment !== match.value;
-  selectedDepartment = match.value;
-  document.getElementById('departmentHint').textContent = match.label;
-  if (changed && activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+  renderDepartmentOptions(input.value);
+  document.getElementById('departmentOptions').classList.add('open');
+  input.setAttribute('aria-expanded', 'true');
 }
 
-function onDepartmentChange() {
-  onDepartmentInput();
-  if (!selectedDepartment) return;
-  if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
+function handleDepartmentKeydown(event) {
+  const list = document.getElementById('departmentOptions');
+  if (event.key === 'Escape') { closeDepartmentOptions(); return; }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    if (!list.classList.contains('open')) openDepartmentOptions();
+    const first = list.querySelector('.department-option');
+    if (first) first.focus();
+  }
+  if (event.key === 'Enter') {
+    const first = list.querySelector('.department-option');
+    if (list.classList.contains('open') && first) { event.preventDefault(); first.click(); }
+  }
 }
+
+document.addEventListener('click', event => {
+  const picker = document.getElementById('departmentPicker');
+  if (picker && !picker.contains(event.target)) closeDepartmentOptions();
+});
 
 function toggleAdminPanel() {
   if (!currentUser || currentUser.role !== 'admin') return;
