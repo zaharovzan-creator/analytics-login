@@ -110,6 +110,10 @@
         <div class="department-options" id="departmentOptions" role="listbox"></div>
       </div>
       <div class="department-hint" id="departmentHint"></div>
+      <label id="preloadControl" style="display:none; margin-top:10px; font-weight:normal; font-size:13px; cursor:pointer;">
+        <input type="checkbox" id="preloadToggle" onchange="togglePreload(this.checked)" style="width:auto; margin-right:6px; vertical-align:middle;">
+        Предзагружать остальные отчёты этого подразделения в фоне
+      </label>
       <div class="preload-status" id="preloadStatus" aria-live="polite"></div>
     </div>
 
@@ -137,6 +141,7 @@ let activeReportName = '';
 let allDepartmentOptions = [];
 let selectedDepartment = '';
 let preloadRunId = 0;
+let preloadEnabled = false;
 let reportRequestId = 0;
 const reportCache = new Map();
 const reportRequests = new Map();
@@ -207,7 +212,7 @@ function setupDepartments(departments, isAdmin) {
     ? 'Начните вводить название и выберите вариант из списка. Администратор может выбрать все подразделения.'
     : 'Начните вводить название и выберите подразделение из списка. Доступны только назначенные вам подразделения.';
   renderDepartmentOptions();
-  if (selectedDepartment !== ALL_DEPARTMENTS) preloadDepartmentReports(selectedDepartment);
+  updatePreloadControl();
 }
 
 function reportCacheKey(department, reportName) {
@@ -234,8 +239,25 @@ function fetchDepartmentReport(department, reportName) {
   return request;
 }
 
+function updatePreloadControl() {
+  const control = document.getElementById('preloadControl');
+  if (control) control.style.display = selectedDepartment && selectedDepartment !== ALL_DEPARTMENTS ? 'block' : 'none';
+}
+
+function togglePreload(enabled) {
+  preloadEnabled = Boolean(enabled);
+  if (!preloadEnabled) {
+    preloadRunId++;
+    setPreloadStatus('Предзагрузка остановлена. Уже загруженные отчёты сохранены.');
+    return;
+  }
+  if (selectedDepartment && selectedDepartment !== ALL_DEPARTMENTS) {
+    preloadDepartmentReports(selectedDepartment);
+  }
+}
+
 async function preloadDepartmentReports(department) {
-  if (!department || department === ALL_DEPARTMENTS) {
+  if (!preloadEnabled || !department || department === ALL_DEPARTMENTS) {
     preloadRunId++;
     setPreloadStatus('');
     return;
@@ -248,6 +270,7 @@ async function preloadDepartmentReports(department) {
   setPreloadStatus('Загрузка отчётов для «' + department + '»: 0 из ' + total + '...');
 
   for (const reportName of CITY_REPORTS) {
+    if (runId !== preloadRunId || !preloadEnabled || selectedDepartment !== department) return;
     if (reportCache.has(reportCacheKey(department, reportName))) {
       loaded++;
       if (runId === preloadRunId) setPreloadStatus('Загрузка отчётов для «' + department + '»: ' + loaded + ' из ' + total + '...');
@@ -258,6 +281,7 @@ async function preloadDepartmentReports(department) {
     } catch (error) {
       errors.push(getReportLabel(reportName) + ': ' + error.message);
     }
+    if (runId !== preloadRunId || !preloadEnabled || selectedDepartment !== department) return;
     loaded++;
     if (runId === preloadRunId) setPreloadStatus('Загрузка отчётов для «' + department + '»: ' + loaded + ' из ' + total + '...');
   }
@@ -331,9 +355,13 @@ function selectDepartment(item) {
     if (selectedDepartment === ALL_DEPARTMENTS) {
       preloadRunId++;
       setPreloadStatus('');
-    } else {
+    } else if (preloadEnabled) {
       preloadDepartmentReports(selectedDepartment);
+    } else {
+      preloadRunId++;
+      setPreloadStatus('');
     }
+    updatePreloadControl();
     if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
   }
 }
@@ -350,13 +378,19 @@ function onDepartmentInput() {
       if (selectedDepartment === ALL_DEPARTMENTS) {
         preloadRunId++;
         setPreloadStatus('');
-      } else {
+      } else if (preloadEnabled) {
         preloadDepartmentReports(selectedDepartment);
+      } else {
+        preloadRunId++;
+        setPreloadStatus('');
       }
+      updatePreloadControl();
       if (activeReportName && activeReportName !== 'Раздел 1') loadReport(activeReportName);
     }
   } else {
     selectedDepartment = '';
+    preloadRunId++;
+    updatePreloadControl();
     document.getElementById('departmentHint').textContent = 'Выберите подразделение из списка.';
   }
   renderDepartmentOptions(input.value);
